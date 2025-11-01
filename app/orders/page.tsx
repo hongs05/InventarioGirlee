@@ -15,10 +15,30 @@ type OrderRow = {
 	id: string;
 	customer_name: string | null;
 	status: string | null;
+	receipt_number: string | null;
+	payment_method: string | null;
+	subtotal_amount: number | null;
+	discount_amount: number | null;
+	tax_amount: number | null;
 	total_amount: number | null;
+	total_cost: number | null;
+	profit_amount: number | null;
 	currency: string | null;
 	created_at: string;
 };
+
+type OrderStats = {
+	totalRevenue: number;
+	totalProfit: number;
+	todayRevenue: number;
+	todayProfit: number;
+};
+
+function parseNumber(value: string | number | null | undefined) {
+	if (value === null || value === undefined) return 0;
+	const parsed = Number(value);
+	return Number.isFinite(parsed) ? parsed : 0;
+}
 
 export default async function OrdersPage() {
 	const supabase = await createSupabaseServerClient();
@@ -32,17 +52,21 @@ export default async function OrdersPage() {
 
 	const { data, error } = await supabase
 		.from("orders")
-		.select("id, customer_name, status, total_amount, currency, created_at")
+		.select(
+			"id, receipt_number, customer_name, status, payment_method, subtotal_amount, discount_amount, tax_amount, total_amount, total_cost, profit_amount, currency, created_at",
+		)
 		.order("created_at", { ascending: false });
 
 	const orders = (data ?? []) as OrderRow[];
+	const stats = calculateStats(orders);
+	const currency = orders[0]?.currency ?? "NIO";
 
 	return (
 		<DashboardShell
 			user={user}
 			currentPath='/orders'
 			title='Órdenes'
-			description='Consulta el historial de pedidos y su estado actual.'
+			description='Consulta el historial de pedidos, verifica montos y márgenes por cada venta.'
 			action={
 				<Link
 					href='/orders/new'
@@ -57,9 +81,90 @@ export default async function OrdersPage() {
 					exista en Supabase y vuelve a intentarlo.
 				</div>
 			) : (
-				<OrdersTable orders={orders} />
+				<div className='space-y-8'>
+					<OrderStatsGrid stats={stats} currency={currency} />
+					<OrdersTable orders={orders} />
+				</div>
 			)}
 		</DashboardShell>
+	);
+}
+
+function calculateStats(orders: OrderRow[]): OrderStats {
+	const now = new Date();
+	const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+	return orders.reduce<OrderStats>(
+		(acc, order) => {
+			const total = parseNumber(order.total_amount);
+			const profit =
+				order.profit_amount !== null
+					? parseNumber(order.profit_amount)
+					: total - parseNumber(order.total_cost);
+
+			acc.totalRevenue += total;
+			acc.totalProfit += profit;
+
+			const createdAt = new Date(order.created_at);
+			if (createdAt >= startOfDay) {
+				acc.todayRevenue += total;
+				acc.todayProfit += profit;
+			}
+
+			return acc;
+		},
+		{ totalRevenue: 0, totalProfit: 0, todayRevenue: 0, todayProfit: 0 },
+	);
+}
+
+function OrderStatsGrid({
+	stats,
+	currency,
+}: {
+	stats: OrderStats;
+	currency: string;
+}) {
+	return (
+		<div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-4'>
+			<StatCard
+				title='Ingresos totales'
+				value={formatCurrency(stats.totalRevenue, currency)}
+				description='Suma de todas las órdenes registradas.'
+			/>
+			<StatCard
+				title='Ganancias totales'
+				value={formatCurrency(stats.totalProfit, currency)}
+				description='Ingresos netos descontando costos.'
+			/>
+			<StatCard
+				title='Ingresos de hoy'
+				value={formatCurrency(stats.todayRevenue, currency)}
+				description='Ventas registradas en la fecha actual.'
+			/>
+			<StatCard
+				title='Ganancias de hoy'
+				value={formatCurrency(stats.todayProfit, currency)}
+				description='Ingresos netos del día.'
+			/>
+		</div>
+	);
+}
+
+function StatCard({
+	title,
+	value,
+	description,
+}: {
+	title: string;
+	value: string;
+	description: string;
+}) {
+	return (
+		<div className='rounded-xl border border-gray-200 bg-white p-5 shadow-sm'>
+			<p className='text-sm font-medium text-gray-500'>{title}</p>
+			<p className='mt-2 text-2xl font-semibold text-gray-900'>{value}</p>
+			<p className='mt-1 text-xs text-gray-500'>{description}</p>
+		</div>
 	);
 }
 
@@ -74,53 +179,81 @@ function OrdersTable({ orders }: { orders: OrderRow[] }) {
 
 	return (
 		<div className='overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm'>
-			<table className='min-w-full divide-y divide-gray-200'>
-				<thead className='bg-gray-50'>
+			<table className='min-w-full divide-y divide-gray-200 text-sm'>
+				<thead className='bg-gray-50 text-xs font-semibold uppercase tracking-wider text-gray-500'>
 					<tr>
-						<th className='px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
-							Cliente
-						</th>
-						<th className='px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
-							Estado
-						</th>
-						<th className='px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
-							Total
-						</th>
-						<th className='px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
-							Creada
-						</th>
-						<th className='px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500'>
-							Acciones
-						</th>
+						<th className='px-4 py-3 text-left'>Cliente</th>
+						<th className='px-4 py-3 text-left'>Estado</th>
+						<th className='px-4 py-3 text-left'>Pago</th>
+						<th className='px-4 py-3 text-left'>Subtotal</th>
+						<th className='px-4 py-3 text-left'>Descuento</th>
+						<th className='px-4 py-3 text-left'>Impuesto</th>
+						<th className='px-4 py-3 text-left'>Total</th>
+						<th className='px-4 py-3 text-left'>Ganancia</th>
+						<th className='px-4 py-3 text-left'>Comprobante</th>
+						<th className='px-4 py-3 text-left'>Creada</th>
+						<th className='px-4 py-3 text-right'>Acciones</th>
 					</tr>
 				</thead>
 				<tbody className='divide-y divide-gray-200'>
-					{orders.map((order) => (
-						<tr key={order.id} className='hover:bg-blush-50'>
-							<td className='px-4 py-4 text-sm text-gray-900'>
-								{order.customer_name ?? "Cliente sin nombre"}
-							</td>
-							<td className='px-4 py-4 text-sm text-gray-700'>
-								<OrderStatusBadge status={order.status} />
-							</td>
-							<td className='px-4 py-4 text-sm text-gray-700'>
-								{formatCurrency(
-									order.total_amount ?? 0,
-									order.currency ?? "NIO",
-								)}
-							</td>
-							<td className='px-4 py-4 text-sm text-gray-500'>
-								{formatDate(order.created_at)}
-							</td>
-							<td className='px-4 py-4 text-right text-sm'>
-								<Link
-									href={`/orders/${order.id}`}
-									className='inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-blush-100'>
-									Ver detalle
-								</Link>
-							</td>
-						</tr>
-					))}
+					{orders.map((order) => {
+						const currency = order.currency ?? "NIO";
+						return (
+							<tr key={order.id} className='hover:bg-blush-50'>
+								<td className='px-4 py-4 font-medium text-gray-900'>
+									{order.customer_name?.trim() || "Cliente sin nombre"}
+								</td>
+								<td className='px-4 py-4 text-gray-700'>
+									<OrderStatusBadge status={order.status} />
+								</td>
+								<td className='px-4 py-4 text-gray-700'>
+									{formatPayment(order.payment_method)}
+								</td>
+								<td className='px-4 py-4 text-gray-700'>
+									{formatCurrency(parseNumber(order.subtotal_amount), currency)}
+								</td>
+								<td className='px-4 py-4 text-gray-700'>
+									{formatCurrency(parseNumber(order.discount_amount), currency)}
+								</td>
+								<td className='px-4 py-4 text-gray-700'>
+									{formatCurrency(parseNumber(order.tax_amount), currency)}
+								</td>
+								<td className='px-4 py-4 text-gray-900'>
+									{formatCurrency(parseNumber(order.total_amount), currency)}
+								</td>
+								<td className='px-4 py-4 text-gray-900'>
+									{formatCurrency(
+										order.profit_amount !== null
+											? parseNumber(order.profit_amount)
+											: parseNumber(order.total_amount) -
+													parseNumber(order.total_cost),
+										currency,
+									)}
+								</td>
+								<td className='px-4 py-4 text-gray-700'>
+									{order.receipt_number ? (
+										<span className='inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600'>
+											{order.receipt_number}
+										</span>
+									) : (
+										<span className='text-xs text-gray-400'>
+											Sin comprobante
+										</span>
+									)}
+								</td>
+								<td className='px-4 py-4 text-gray-500'>
+									{formatDate(order.created_at)}
+								</td>
+								<td className='px-4 py-4 text-right'>
+									<Link
+										href={`/orders/${order.id}`}
+										className='inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-blush-100'>
+										Ver detalle
+									</Link>
+								</td>
+							</tr>
+						);
+					})}
 				</tbody>
 			</table>
 		</div>
@@ -167,4 +300,15 @@ function formatDate(raw: string) {
 	} catch {
 		return raw;
 	}
+}
+
+function formatPayment(method: string | null | undefined) {
+	const normalized = (method ?? "cash").toLowerCase();
+	const map: Record<string, string> = {
+		cash: "Efectivo",
+		card: "Tarjeta",
+		transfer: "Transferencia",
+	};
+
+	return map[normalized] ?? normalized;
 }
