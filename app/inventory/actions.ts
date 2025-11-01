@@ -34,6 +34,7 @@ function parseProductForm(formData: FormData) {
 		sellPrice: formData.get("sellPrice"),
 		currency: formData.get("currency"),
 		status: formData.get("status"),
+		quantity: formData.get("quantity"),
 		imageFile:
 			imageEntry instanceof File && imageEntry.size > 0
 				? imageEntry
@@ -126,6 +127,7 @@ export async function createProductAction(
 				currency: payload.currency ?? "NIO",
 				status: payload.status,
 				image_path: imageUrl,
+				quantity: payload.quantity ?? 0,
 				created_by: authData?.user?.id ?? null,
 			})
 			.select("id")
@@ -238,6 +240,7 @@ export async function updateProductAction(formData: FormData): Promise<
 				currency: payload.currency ?? "NIO",
 				status: payload.status,
 				image_path: imageUrl,
+				quantity: payload.quantity ?? 0,
 			})
 			.eq("id", id);
 

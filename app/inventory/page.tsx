@@ -1,7 +1,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 
+import DashboardShell from "@/components/dashboard-shell";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { recommendPrice } from "@/lib/pricing";
 import { archiveProductAction } from "./actions";
@@ -35,6 +37,7 @@ type ProductRow = {
 	image_path: string | null;
 	created_at: string;
 	category_id: number | null;
+	quantity: number | null;
 	categories: { name: string | null } | null;
 };
 
@@ -45,6 +48,13 @@ export default async function InventoryPage({
 }) {
 	const resolvedSearchParams = await searchParams;
 	const supabase = await createSupabaseServerClient();
+	const {
+		data: { user },
+	} = await supabase.auth.getUser();
+
+	if (!user) {
+		redirect("/login");
+	}
 
 	const { data: categories } = await supabase
 		.from("categories")
@@ -54,7 +64,7 @@ export default async function InventoryPage({
 	let productsQuery = supabase
 		.from("products")
 		.select(
-			"id, sku, name, status, cost_price, sell_price, currency, image_path, created_at, category_id, categories(name)",
+			"id, sku, name, status, cost_price, sell_price, currency, image_path, created_at, category_id, quantity, categories(name)",
 		)
 		.order("created_at", { ascending: false });
 
@@ -77,41 +87,33 @@ export default async function InventoryPage({
 	const { data: products } = await productsQuery;
 
 	return (
-		<div className='min-h-screen bg-gray-50'>
-			<div className='mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8'>
+		<DashboardShell
+			user={user}
+			currentPath='/inventory'
+			title='Inventario'
+			description='Gestiona productos, categorías y precios recomendados desde una sola vista.'
+			action={
+				<Link
+					href='/inventory/new'
+					className='inline-flex items-center justify-center rounded-md bg-blush-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blush-400'>
+					Nuevo producto
+				</Link>
+			}>
+			<Suspense
+				fallback={
+					<div className='rounded-lg border border-gray-200 bg-white p-6'>
+						Cargando…
+					</div>
+				}>
 				<div className='flex flex-col gap-6'>
-					<header className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
-						<div>
-							<h1 className='text-3xl font-semibold text-gray-900'>
-								Inventario
-							</h1>
-							<p className='text-sm text-gray-500'>
-								Gestiona productos, categorías y precios recomendados desde una
-								sola vista.
-							</p>
-						</div>
-						<Link
-							href='/inventory/new'
-							className='inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700'>
-							Nuevo producto
-						</Link>
-					</header>
-
-					<Suspense
-						fallback={
-							<div className='rounded-lg border border-gray-200 bg-white p-6'>
-								Cargando…
-							</div>
-						}>
-						<InventoryFilters
-							categories={categories ?? []}
-							searchParams={resolvedSearchParams}
-						/>
-						<InventoryTable products={products ?? []} />
-					</Suspense>
+					<InventoryFilters
+						categories={categories ?? []}
+						searchParams={resolvedSearchParams}
+					/>
+					<InventoryTable products={products ?? []} />
 				</div>
-			</div>
-		</div>
+			</Suspense>
+		</DashboardShell>
 	);
 }
 
@@ -136,7 +138,7 @@ async function InventoryFilters({
 					type='search'
 					placeholder='Nombre, SKU…'
 					defaultValue={searchParams.q ?? ""}
-					className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+					className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 				/>
 			</div>
 
@@ -148,7 +150,7 @@ async function InventoryFilters({
 					id='status'
 					name='status'
 					defaultValue={searchParams.status ?? ""}
-					className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'>
+					className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'>
 					{PRODUCT_STATUSES.map((status) => (
 						<option key={status.value} value={status.value}>
 							{status.label}
@@ -165,7 +167,7 @@ async function InventoryFilters({
 					id='category'
 					name='category'
 					defaultValue={searchParams.category ?? ""}
-					className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'>
+					className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'>
 					<option value=''>Todas</option>
 					{categories.map((category) => (
 						<option key={category.id} value={category.id}>
@@ -215,6 +217,11 @@ async function InventoryTable({ products }: { products: ProductRow[] }) {
 							scope='col'
 							className='px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
 							Precio sugerido
+						</th>
+						<th
+							scope='col'
+							className='px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500'>
+							Inventario
 						</th>
 						<th
 							scope='col'
@@ -272,6 +279,9 @@ async function InventoryTable({ products }: { products: ProductRow[] }) {
 									{formatCurrency(recommendation.suggested, product.currency)}
 								</td>
 								<td className='px-4 py-4 text-sm text-gray-700'>
+									{formatQuantity(product.quantity)}
+								</td>
+								<td className='px-4 py-4 text-sm text-gray-700'>
 									<StatusBadge status={product.status} />
 								</td>
 								<td className='px-4 py-4'>
@@ -308,16 +318,12 @@ function StatusBadge({ status }: { status: string }) {
 		"inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium";
 	if (status === "active") {
 		return (
-			<span className={`${baseClass} bg-emerald-100 text-emerald-700`}>
-				Activo
-			</span>
+			<span className={`${baseClass} bg-blush-100 text-blush-600`}>Activo</span>
 		);
 	}
 	if (status === "draft") {
 		return (
-			<span className={`${baseClass} bg-amber-100 text-amber-700`}>
-				Borrador
-			</span>
+			<span className={`${baseClass} bg-blush-200 text-blush-700`}>Borrador</span>
 		);
 	}
 	return (
@@ -331,4 +337,11 @@ function formatCurrency(value: number, currency = "NIO") {
 		currency,
 		minimumFractionDigits: 2,
 	}).format(value ?? 0);
+}
+
+function formatQuantity(quantity: number | null | undefined) {
+	const value = Number.isFinite(quantity ?? NaN) ? quantity ?? 0 : 0;
+	const formatted = new Intl.NumberFormat("es-NI").format(value);
+	const label = value === 1 ? "unidad" : "unidades";
+	return `${formatted} ${label}`;
 }

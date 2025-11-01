@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { ComboForm } from "@/app/combos/_components/combo-form";
 import { createComboAction } from "@/app/combos/actions";
+import DashboardShell from "@/components/dashboard-shell";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 type ProductRow = {
@@ -14,6 +16,13 @@ type ProductRow = {
 
 export default async function NewComboPage() {
 	const supabase = await createSupabaseServerClient();
+	const {
+		data: { user },
+	} = await supabase.auth.getUser();
+
+	if (!user) {
+		redirect("/login");
+	}
 	const { data: products } = await supabase
 		.from("products")
 		.select("id, name, cost_price, status, categories(name)")
@@ -28,31 +37,23 @@ export default async function NewComboPage() {
 	}));
 
 	return (
-		<div className='min-h-screen bg-gray-50'>
-			<div className='mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8'>
-				<div className='mb-6 flex items-center justify-between'>
-					<div>
-						<h1 className='text-3xl font-semibold text-gray-900'>
-							Nuevo combo
-						</h1>
-						<p className='text-sm text-gray-500'>
-							Combina productos y calcula precios recomendados de forma
-							automática.
-						</p>
-					</div>
-					<Link
-						href='/combos'
-						className='inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100'>
-						Ver combos
-					</Link>
-				</div>
-
-				<ComboForm
-					products={productOptions}
-					submitAction={createComboAction}
-					submitLabel='Guardar borrador'
-				/>
-			</div>
-		</div>
+		<DashboardShell
+			user={user}
+			currentPath='/combos'
+			title='Nuevo combo'
+			description='Combina productos y calcula precios recomendados de forma automática.'
+			action={
+				<Link
+					href='/combos'
+					className='inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-100'>
+					Ver combos
+				</Link>
+			}>
+			<ComboForm
+				products={productOptions}
+				submitAction={createComboAction}
+				submitLabel='Guardar borrador'
+			/>
+		</DashboardShell>
 	);
 }

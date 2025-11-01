@@ -1,9 +1,17 @@
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+
+import DashboardShell from "@/components/dashboard-shell";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+
+const dateTimeFormatter = new Intl.DateTimeFormat("es-NI", {
+	dateStyle: "medium",
+	timeStyle: "short",
+	timeZone: "UTC",
+});
 
 export default async function DashboardPage() {
 	const supabase = await createSupabaseServerClient();
-
 	const {
 		data: { user },
 	} = await supabase.auth.getUser();
@@ -12,67 +20,142 @@ export default async function DashboardPage() {
 		redirect("/login");
 	}
 
-	async function signOut() {
-		"use server";
+	const [
+		productStats,
+		comboStats,
+		categoryStats,
+		recentProducts,
+		recentCombos,
+	] = await Promise.all([
+		supabase.from("products").select("id", { count: "exact", head: true }),
+		supabase.from("combos").select("id", { count: "exact", head: true }),
+		supabase.from("categories").select("id", { count: "exact", head: true }),
+		supabase
+			.from("products")
+			.select("id, name, created_at")
+			.order("created_at", { ascending: false })
+			.limit(5),
+		supabase
+			.from("combos")
+			.select("id, name, created_at")
+			.order("created_at", { ascending: false })
+			.limit(5),
+	]);
 
-		const supabase = await createSupabaseServerClient();
-		await supabase.auth.signOut();
-		redirect("/login");
-	}
+	const productCount = productStats.count ?? 0;
+	const comboCount = comboStats.count ?? 0;
+	const categoryCount = categoryStats.count ?? 0;
+
+	const recentProductItems = (recentProducts.data ?? []) as Array<{
+		id: string;
+		name: string;
+		created_at: string;
+	}>;
+
+	const recentComboItems = (recentCombos.data ?? []) as Array<{
+		id: string;
+		name: string;
+		created_at: string;
+	}>;
 
 	return (
-		<div className='min-h-screen bg-gray-100'>
-			<nav className='bg-white shadow-sm'>
-				<div className='mx-auto max-w-7xl px-4 sm:px-6 lg:px-8'>
-					<div className='flex h-16 justify-between'>
-						<div className='flex items-center'>
-							<h1 className='text-xl font-semibold text-gray-900'>Dashboard</h1>
-						</div>
-						<div className='flex items-center'>
-							<form action={signOut}>
-								<button
-									type='submit'
-									className='rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700'>
-									Sign out
-								</button>
-							</form>
-						</div>
-					</div>
-				</div>
-			</nav>
+		<DashboardShell
+			user={user}
+			currentPath='/dashboard'
+			title='Panel general'
+			description='Monitoriza tu inventario, combos y categorías de un vistazo.'>
+			<section className='grid gap-6 lg:grid-cols-3'>
+				<StatCard
+					title='Productos totales'
+					value={productCount}
+					helperText='Incluye activos, borradores y archivados'
+				/>
+				<StatCard
+					title='Combos creados'
+					value={comboCount}
+					helperText='Paquetes disponibles en tu catálogo'
+				/>
+				<StatCard
+					title='Categorías'
+					value={categoryCount}
+					helperText='Organiza tus productos por segmentos'
+				/>
+			</section>
 
-			<main className='mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8'>
-				<div className='rounded-lg bg-white p-6 shadow'>
-					<h2 className='mb-4 text-2xl font-bold text-gray-900'>Welcome!</h2>
-					<p className='text-gray-600'>
-						You are signed in as:{" "}
-						<span className='font-medium text-gray-900'>{user.email}</span>
-					</p>
-					<div className='mt-6'>
-						<h3 className='mb-2 text-lg font-semibold text-gray-900'>
-							User Details:
-						</h3>
-						<dl className='space-y-2'>
-							<div>
-								<dt className='text-sm font-medium text-gray-500'>User ID:</dt>
-								<dd className='text-sm text-gray-900'>{user.id}</dd>
-							</div>
-							<div>
-								<dt className='text-sm font-medium text-gray-500'>Email:</dt>
-								<dd className='text-sm text-gray-900'>{user.email}</dd>
-							</div>
-							<div>
-								<dt className='text-sm font-medium text-gray-500'>
-									Created At:
-								</dt>
-								<dd className='text-sm text-gray-900'>
-									{new Date(user.created_at).toLocaleDateString()}
-								</dd>
-							</div>
-						</dl>
-					</div>
-				</div>
-			</main>
+			<section className='grid gap-6 lg:grid-cols-2'>
+				<ActivityList
+					title='Últimos productos'
+					emptyLabel='Aún no registras productos.'
+					items={recentProductItems.map((product) => ({
+						href: `/inventory/${product.id}`,
+						label: product.name,
+						subLabel: dateTimeFormatter.format(new Date(product.created_at)),
+					}))}
+				/>
+				<ActivityList
+					title='Últimos combos'
+					emptyLabel='Aún no registras combos.'
+					items={recentComboItems.map((combo) => ({
+						href: `/combos/${combo.id}`,
+						label: combo.name,
+						subLabel: dateTimeFormatter.format(new Date(combo.created_at)),
+					}))}
+				/>
+			</section>
+		</DashboardShell>
+	);
+}
+
+function StatCard({
+	title,
+	value,
+	helperText,
+}: {
+	title: string;
+	value: number;
+	helperText?: string;
+}) {
+	return (
+		<div className='rounded-xl border border-blush-200 bg-white p-6 shadow-sm'>
+			<p className='text-sm font-medium text-blush-500'>{title}</p>
+			<p className='mt-2 text-3xl font-semibold text-gray-900'>{value}</p>
+			{helperText ? (
+				<p className='mt-2 text-xs text-gray-500'>{helperText}</p>
+			) : null}
+		</div>
+	);
+}
+
+function ActivityList({
+	title,
+	emptyLabel,
+	items,
+}: {
+	title: string;
+	emptyLabel: string;
+	items: Array<{ href: string; label: string; subLabel: string }>;
+}) {
+	return (
+		<div className='rounded-xl border border-blush-200 bg-white shadow-sm'>
+			<div className='border-b border-blush-200 px-6 py-4'>
+				<h2 className='text-lg font-semibold text-gray-900'>{title}</h2>
+			</div>
+			{items.length ? (
+				<ul className='divide-y divide-gray-200'>
+					{items.map((item) => (
+						<li key={item.href} className='px-6 py-4'>
+							<Link
+								href={item.href}
+								className='flex flex-col text-sm transition hover:text-blush-600'>
+								<span className='font-medium text-gray-900'>{item.label}</span>
+								<span className='text-xs text-gray-500'>{item.subLabel}</span>
+							</Link>
+						</li>
+					))}
+				</ul>
+			) : (
+				<p className='px-6 py-8 text-sm text-gray-500'>{emptyLabel}</p>
+			)}
 		</div>
 	);
 }

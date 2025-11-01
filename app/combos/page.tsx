@@ -1,6 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 
+import DashboardShell from "@/components/dashboard-shell";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { recommendPrice } from "@/lib/pricing";
 
@@ -10,6 +12,11 @@ const COMBO_STATUSES = [
 	{ value: "draft", label: "Borradores" },
 	{ value: "archived", label: "Archivados" },
 ];
+
+const dateFormatter = new Intl.DateTimeFormat("es-NI", {
+	dateStyle: "medium",
+	timeZone: "UTC",
+});
 
 type SearchParams = {
 	status?: string;
@@ -24,7 +31,17 @@ type ComboRow = {
 	suggested_price: number | null;
 	image_path: string | null;
 	created_at: string;
+	combo_items: Array<{
+		qty: number;
+		products: {
+			cost_price: number;
+		} | null;
+	}>;
 };
+
+function formatDate(value: string) {
+	return dateFormatter.format(new Date(value));
+}
 
 export default async function CombosPage({
 	searchParams,
@@ -33,11 +50,19 @@ export default async function CombosPage({
 }) {
 	const resolvedSearchParams = await searchParams;
 	const supabase = await createSupabaseServerClient();
+	const {
+		data: { user },
+	} = await supabase.auth.getUser();
+
+	if (!user) {
+		redirect("/login");
+	}
 
 	let combosQuery = supabase
 		.from("combos")
 		.select(
-			"id, name, description, status, packaging_cost, suggested_price, image_path, created_at",
+			`id, name, description, status, packaging_cost, suggested_price, image_path, created_at,
+			combo_items(qty, products(cost_price))`,
 		)
 		.order("created_at", { ascending: false });
 
@@ -48,60 +73,51 @@ export default async function CombosPage({
 	const { data: combos } = await combosQuery;
 
 	return (
-		<div className='min-h-screen bg-gray-50'>
-			<div className='mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8'>
-				<div className='flex flex-col gap-6'>
-					<header className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
-						<div>
-							<h1 className='text-3xl font-semibold text-gray-900'>Combos</h1>
-							<p className='text-sm text-gray-500'>
-								Crea bundles rentables combinando tus mejores productos.
-							</p>
-						</div>
-						<Link
-							href='/combos/new'
-							className='inline-flex items-center justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700'>
-							Nuevo combo
-						</Link>
-					</header>
+		<DashboardShell
+			user={user}
+			currentPath='/combos'
+			title='Combos'
+			description='Crea bundles rentables combinando tus mejores productos.'
+			action={
+				<Link
+					href='/combos/new'
+					className='inline-flex items-center justify-center rounded-md bg-blush-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blush-400'>
+					Nuevo combo
+				</Link>
+			}>
+			<form
+				className='flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm'
+				method='get'>
+				<label htmlFor='status' className='text-sm font-medium text-gray-700'>
+					Estado
+				</label>
+				<select
+					id='status'
+					name='status'
+					defaultValue={resolvedSearchParams.status ?? ""}
+					className='w-48 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'>
+					{COMBO_STATUSES.map((status) => (
+						<option key={status.value} value={status.value}>
+							{status.label}
+						</option>
+					))}
+				</select>
+				<button
+					type='submit'
+					className='inline-flex items-center rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-100'>
+					Filtrar
+				</button>
+			</form>
 
-					<form
-						className='flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm'
-						method='get'>
-						<label
-							htmlFor='status'
-							className='text-sm font-medium text-gray-700'>
-							Estado
-						</label>
-						<select
-							id='status'
-							name='status'
-							defaultValue={resolvedSearchParams.status ?? ""}
-							className='w-48 rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'>
-							{COMBO_STATUSES.map((status) => (
-								<option key={status.value} value={status.value}>
-									{status.label}
-								</option>
-							))}
-						</select>
-						<button
-							type='submit'
-							className='inline-flex items-center rounded-md border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-100'>
-							Filtrar
-						</button>
-					</form>
-
-					<CombosTable combos={combos ?? []} />
-				</div>
-			</div>
-		</div>
+			<CombosTable combos={combos ?? []} />
+		</DashboardShell>
 	);
 }
 
 function CombosTable({ combos }: { combos: ComboRow[] }) {
 	if (!combos.length) {
 		return (
-			<div className='rounded-lg border border-gray-200 bg-white p-12 text-center text-sm text-gray-500 shadow-sm'>
+			<div className='rounded-lg border border-blush-200 bg-white p-12 text-center text-sm text-gray-500 shadow-sm'>
 				No hay combos registrados todavía. Crea uno nuevo para comenzar.
 			</div>
 		);
@@ -131,10 +147,17 @@ function CombosTable({ combos }: { combos: ComboRow[] }) {
 				</thead>
 				<tbody className='divide-y divide-gray-200'>
 					{combos.map((combo) => {
+						const itemsCost = (combo.combo_items ?? []).reduce(
+							(acc, item) =>
+								acc +
+								Number(item.products?.cost_price ?? 0) * Number(item.qty ?? 0),
+							0,
+						);
+						const packaging = Number(combo.packaging_cost ?? 0);
+						const totalCost = packaging + itemsCost;
 						const suggested =
 							combo.suggested_price ??
-							recommendPrice({ costPrice: Number(combo.packaging_cost ?? 0) })
-								.suggested;
+							recommendPrice({ costPrice: totalCost }).suggested;
 
 						return (
 							<tr key={combo.id} className='hover:bg-gray-50'>
@@ -160,10 +183,7 @@ function CombosTable({ combos }: { combos: ComboRow[] }) {
 											</p>
 											<p className='text-xs text-gray-500'>
 												Creado el{" "}
-												{new Date(combo.created_at).toLocaleDateString(
-													"es-NI",
-													{ dateStyle: "medium" },
-												)}
+												{formatDate(combo.created_at)}
 											</p>
 										</div>
 									</div>
@@ -180,7 +200,7 @@ function CombosTable({ combos }: { combos: ComboRow[] }) {
 								<td className='px-4 py-4 text-right text-sm'>
 									<Link
 										href={`/combos/${combo.id}`}
-										className='inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100'>
+										className='inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-blush-50'>
 										Editar
 									</Link>
 								</td>
@@ -198,16 +218,12 @@ function StatusBadge({ status }: { status: string }) {
 		"inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium";
 	if (status === "active") {
 		return (
-			<span className={`${baseClass} bg-emerald-100 text-emerald-700`}>
-				Activo
-			</span>
+			<span className={`${baseClass} bg-blush-100 text-blush-600`}>Activo</span>
 		);
 	}
 	if (status === "draft") {
 		return (
-			<span className={`${baseClass} bg-amber-100 text-amber-700`}>
-				Borrador
-			</span>
+			<span className={`${baseClass} bg-blush-200 text-blush-700`}>Borrador</span>
 		);
 	}
 	return (

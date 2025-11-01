@@ -35,8 +35,8 @@ export default async function LoginPage() {
 	}
 
 	return (
-		<div className='flex min-h-screen items-center justify-center bg-gray-100'>
-			<div className='w-full max-w-md space-y-8 rounded-lg bg-white p-8 shadow-md'>
+		<div className='flex min-h-screen items-center justify-center bg-blush-50'>
+			<div className='w-full max-w-md space-y-8 rounded-lg border border-blush-100 bg-white p-8 shadow-md'>
 				<div>
 					<h2 className='text-center text-3xl font-bold tracking-tight text-gray-900'>
 						Sign in to your account
@@ -56,7 +56,7 @@ export default async function LoginPage() {
 								type='email'
 								autoComplete='email'
 								required
-								className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+								className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blush-400 focus:outline-none focus:ring-blush-300'
 							/>
 						</div>
 						<div>
@@ -71,7 +71,7 @@ export default async function LoginPage() {
 								type='password'
 								autoComplete='current-password'
 								required
-								className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500'
+								className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blush-400 focus:outline-none focus:ring-blush-300'
 							/>
 						</div>
 					</div>
@@ -79,7 +79,7 @@ export default async function LoginPage() {
 					<div>
 						<button
 							type='submit'
-							className='w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'>
+							className='w-full rounded-md bg-blush-500 px-4 py-2 text-white hover:bg-blush-400 focus:outline-none focus:ring-2 focus:ring-blush-300 focus:ring-offset-2'>
 							Sign in
 						</button>
 					</div>
@@ -88,7 +88,7 @@ export default async function LoginPage() {
 						<span className='text-gray-600'>Don&apos;t have an account? </span>
 						<Link
 							href='/signup'
-							className='font-medium text-blue-600 hover:text-blue-500'>
+							className='font-medium text-blush-600 hover:text-blush-600'>
 							Sign up
 						</Link>
 					</div>

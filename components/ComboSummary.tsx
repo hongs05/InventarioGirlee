@@ -33,18 +33,20 @@ export function ComboSummary({
 			0,
 		);
 		const totalCost = productsCost + packagingCost;
-		const profit = suggestedPrice ? suggestedPrice - totalCost : null;
+		const hasSuggestedPrice =
+			typeof suggestedPrice === "number" && Number.isFinite(suggestedPrice);
+		const profit = hasSuggestedPrice ? suggestedPrice - totalCost : null;
 
-		return { productsCost, totalCost, profit };
+		return { productsCost, totalCost, profit, hasSuggestedPrice };
 	}, [items, packagingCost, suggestedPrice]);
 
 	return (
-		<div className='space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm'>
+		<div className='space-y-4 rounded-lg border border-blush-200 bg-white p-4 shadow-sm'>
 			<div>
 				<h3 className='text-lg font-semibold text-gray-900'>
 					Resumen del combo
 				</h3>
-				<p className='text-sm text-gray-500'>
+				<p className='text-sm text-blush-500'>
 					Costos, empaque y margen estimado
 				</p>
 			</div>
@@ -68,11 +70,11 @@ export function ComboSummary({
 						{formatter.format(totals.totalCost)}
 					</span>
 				</div>
-				{suggestedPrice !== undefined && suggestedPrice !== null && (
+				{totals.hasSuggestedPrice && (
 					<div className='flex items-center justify-between border-t border-dashed border-gray-200 pt-2'>
 						<span className='text-gray-600'>Precio sugerido</span>
 						<span className='font-semibold text-gray-900'>
-							{formatter.format(suggestedPrice)}
+							{formatter.format(suggestedPrice ?? 0)}
 						</span>
 					</div>
 				)}
@@ -81,7 +83,7 @@ export function ComboSummary({
 						<span className='text-gray-600'>Ganancia estimada</span>
 						<span
 							className={`font-semibold ${
-								totals.profit >= 0 ? "text-emerald-600" : "text-red-600"
+								totals.profit >= 0 ? "text-blush-600" : "text-red-500"
 							}`}>
 							{formatter.format(totals.profit)}
 						</span>
@@ -89,7 +91,7 @@ export function ComboSummary({
 				)}
 			</div>
 
-			<div className='rounded-md bg-gray-50 p-3 text-xs text-gray-500'>
+			<div className='rounded-md bg-blush-50 p-3 text-xs text-blush-600'>
 				Las cifras mostradas son referenciales. Ajusta los márgenes en el
 				siguiente paso cuando guardes el combo.
 			</div>

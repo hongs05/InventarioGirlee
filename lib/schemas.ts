@@ -34,6 +34,27 @@ const optionalNumber = z
 		message: "Ingrese un número válido",
 	});
 
+const nonNegativeInteger = z
+	.union([z.string(), z.number(), z.null(), z.undefined()])
+	.transform((value) => {
+		if (value === undefined || value === null) {
+			return undefined;
+		}
+
+		if (typeof value === "number") {
+			return Number.isFinite(value) ? value : NaN;
+		}
+
+		const parsed = Number(String(value).trim());
+		return Number.isFinite(parsed) ? parsed : NaN;
+	})
+	.refine(
+		(value) => value === undefined || (Number.isInteger(value) && value >= 0),
+		{
+			message: "Ingrese una cantidad válida",
+		},
+	);
+
 export const productStatusEnum = z.enum(["active", "draft", "archived"]);
 
 export const productFormSchema = z.object({
@@ -48,7 +69,20 @@ export const productFormSchema = z.object({
 	costPrice: z
 		.union([z.string(), z.number()])
 		.transform((value) => {
-			const parsed = Number(value);
+			if (typeof value === "number") {
+				return Number.isFinite(value) ? value : NaN;
+			}
+
+			const normalized = String(value)
+				.trim()
+				.replace(/\s+/g, "")
+				.replace(",", ".");
+
+			if (!normalized) {
+				return NaN;
+			}
+
+			const parsed = Number(normalized);
 			return Number.isFinite(parsed) ? parsed : NaN;
 		})
 		.refine((value) => Number.isFinite(value) && value >= 0, {
@@ -57,6 +91,7 @@ export const productFormSchema = z.object({
 	sellPrice: optionalNumber,
 	currency: z.string().min(1, "Moneda requerida").default("NIO"),
 	status: productStatusEnum.default("active"),
+	quantity: nonNegativeInteger.default(0),
 	imageFile: z.any().optional(),
 });
 
@@ -101,6 +136,76 @@ export const comboUpdateSchema = comboFormSchema.extend({
 export type ComboItemInput = z.infer<typeof comboItemSchema>;
 export type ComboFormValues = z.infer<typeof comboFormSchema>;
 export type ComboUpdateValues = z.infer<typeof comboUpdateSchema>;
+
+const orderProductItemSchema = z.object({
+	productId: z.string().uuid("Producto inválido"),
+	qty: z.number().int().positive("Cantidad inválida"),
+	unitPrice: z.number().min(0, "Precio inválido"),
+});
+
+const orderComboItemSchema = z.object({
+	comboId: z.string().uuid("Combo inválido"),
+	qty: z.number().int().positive("Cantidad inválida"),
+	unitPrice: z.number().min(0, "Precio inválido"),
+});
+
+export const orderFormSchema = z
+	.object({
+		customerName: z
+			.string()
+			.min(1, "El nombre del cliente es obligatorio")
+			.max(200, "Máximo 200 caracteres"),
+		notes: optionalTrimmedString.optional(),
+		productItems: z.array(orderProductItemSchema).default([]),
+		comboItems: z.array(orderComboItemSchema).default([]),
+	})
+	.refine(
+		(data) =>
+			(data.productItems?.length ?? 0) + (data.comboItems?.length ?? 0) > 0,
+		{
+			message: "Agrega al menos un producto o combo",
+			path: ["items"],
+		},
+	);
+
+export type OrderProductItemInput = z.infer<typeof orderProductItemSchema>;
+export type OrderComboItemInput = z.infer<typeof orderComboItemSchema>;
+export type OrderFormValues = z.infer<typeof orderFormSchema>;
+
+export const orderPaymentMethodEnum = z.enum(["cash", "card", "transfer"]);
+
+export const posOrderSchema = z
+	.object({
+		customerName: optionalTrimmedString.optional(),
+		customerPhone: optionalTrimmedString.optional(),
+		notes: optionalTrimmedString.optional(),
+		paymentMethod: orderPaymentMethodEnum.default("cash"),
+		receiptNumber: optionalTrimmedString.optional(),
+		currency: z.string().min(1, "Moneda requerida").default("NIO"),
+		discountAmount: optionalNumber.default(0),
+		taxAmount: optionalNumber.default(0),
+		productItems: z.array(orderProductItemSchema).default([]),
+		comboItems: z.array(orderComboItemSchema).default([]),
+	})
+	.refine(
+		(data) =>
+			(data.productItems?.length ?? 0) + (data.comboItems?.length ?? 0) > 0,
+		{
+			message: "Agrega al menos un producto o combo",
+			path: ["items"],
+		},
+	)
+	.refine(
+		(data) =>
+			data.paymentMethod !== "transfer" ||
+			(typeof data.receiptNumber === "string" && data.receiptNumber.length > 0),
+		{
+			message: "Ingresa el número de comprobante",
+			path: ["receiptNumber"],
+		},
+	);
+
+export type PosOrderValues = z.infer<typeof posOrderSchema>;
 
 export const suggestComboInputSchema = z.object({
 	budgetMin: optionalNumber,

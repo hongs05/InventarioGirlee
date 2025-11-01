@@ -22,6 +22,7 @@ A modern Next.js boilerplate with Supabase authentication, built with TypeScript
 ## Prerequisites
 
 Before you begin, ensure you have:
+
 - Node.js 18+ installed
 - A Supabase account (free tier available at [supabase.com](https://supabase.com))
 
@@ -106,6 +107,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ### Middleware
 
 The middleware automatically:
+
 - Refreshes authentication tokens
 - Redirects unauthenticated users from `/dashboard` to `/login`
 - Redirects authenticated users from `/login` or `/signup` to `/dashboard`
@@ -135,16 +137,19 @@ Don't forget to add your environment variables in the Vercel dashboard.
 ### Environment Variables for Production
 
 Make sure to set these environment variables in your deployment platform:
+
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 ## Learn More
 
 ### Next.js
+
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Learn Next.js](https://nextjs.org/learn)
 
 ### Supabase
+
 - [Supabase Documentation](https://supabase.com/docs)
 - [Supabase Auth with Next.js](https://supabase.com/docs/guides/auth/server-side/nextjs)
 
@@ -155,4 +160,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-

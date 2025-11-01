@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { UploadImage } from "@/components/UploadImage";
 import { PriceTiers } from "@/components/PriceTiers";
-import { recommendPrice } from "@/lib/pricing";
+import { recommendPrice, type PriceRecommendation } from "@/lib/pricing";
 import {
 	ProductFormValues,
 	productFormSchema,
@@ -46,7 +46,9 @@ export function ProductForm({
 	const [showRecommendations, setShowRecommendations] = useState(false);
 	const [isPending, startTransition] = useTransition();
 	const [imageKey, setImageKey] = useState(0);
-	const isEditing = Boolean(defaultValues?.id);
+	const isEditing = Boolean(
+		defaultValues && Object.keys(defaultValues).length > 0,
+	);
 
 	const form = useForm<ProductFormValues>({
 		resolver: zodResolver(productFormSchema),
@@ -60,6 +62,7 @@ export function ProductForm({
 			sellPrice: defaultValues?.sellPrice,
 			currency: defaultValues?.currency ?? "NIO",
 			status: defaultValues?.status ?? "active",
+			quantity: defaultValues?.quantity ?? 0,
 			imageFile: undefined,
 		},
 	});
@@ -100,6 +103,17 @@ export function ProductForm({
 		}
 	}, [costPrice, selectedCategoryName]);
 
+	const handleTierSelect = useCallback(
+		(_tier: PriceRecommendation["appliedTier"], value: number) => {
+			setValue("sellPrice", Number(value.toFixed(2)), {
+				shouldDirty: true,
+				shouldValidate: true,
+			});
+			setShowRecommendations(true);
+		},
+		[setShowRecommendations, setValue],
+	);
+
 	const onSubmit = handleSubmit((values) => {
 		const formData = new FormData();
 		formData.append("name", values.name);
@@ -114,6 +128,7 @@ export function ProductForm({
 			formData.append("sellPrice", String(values.sellPrice));
 		formData.append("currency", values.currency ?? "NIO");
 		formData.append("status", values.status);
+		formData.append("quantity", String(values.quantity ?? 0));
 		if (values.imageFile instanceof File)
 			formData.append("imageFile", values.imageFile);
 
@@ -139,6 +154,7 @@ export function ProductForm({
 					sellPrice: undefined,
 					currency: values.currency ?? "NIO",
 					status: "active",
+					quantity: 0,
 					imageFile: undefined,
 				});
 				setImageKey((prev) => prev + 1);
@@ -159,7 +175,7 @@ export function ProductForm({
 			</div>
 
 			{successMessage && (
-				<div className='rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800'>
+				<div className='rounded-md border border-blush-200 bg-blush-50 px-4 py-3 text-sm text-blush-700'>
 					{successMessage}
 				</div>
 			)}
@@ -181,7 +197,7 @@ export function ProductForm({
 							type='text'
 							autoComplete='off'
 							{...register("name")}
-							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 						/>
 						{errors.name && (
 							<p className='text-xs text-red-500'>{errors.name.message}</p>
@@ -201,7 +217,7 @@ export function ProductForm({
 								autoComplete='off'
 								{...register("sku")}
 								placeholder='Opcional'
-								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 							/>
 							{errors.sku && (
 								<p className='text-xs text-red-500'>{errors.sku.message}</p>
@@ -216,7 +232,7 @@ export function ProductForm({
 							<select
 								id='status'
 								{...register("status")}
-								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'>
+								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'>
 								{statusOptions.map((status) => (
 									<option key={status} value={status}>
 										{status === "active"
@@ -243,13 +259,32 @@ export function ProductForm({
 							id='description'
 							rows={4}
 							{...register("description")}
-							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 							placeholder='Detalles, beneficios, formato, etc.'
 						/>
 						{errors.description && (
 							<p className='text-xs text-red-500'>
 								{errors.description.message}
 							</p>
+						)}
+					</div>
+
+					<div className='space-y-2'>
+						<label
+							className='text-sm font-medium text-gray-700'
+							htmlFor='quantity'>
+							Cantidad en inventario
+						</label>
+						<input
+							id='quantity'
+							type='number'
+							min={0}
+							step={1}
+							{...register("quantity", { valueAsNumber: true })}
+							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
+						/>
+						{errors.quantity && (
+							<p className='text-xs text-red-500'>{errors.quantity.message}</p>
 						)}
 					</div>
 
@@ -263,7 +298,7 @@ export function ProductForm({
 							<select
 								id='categoryId'
 								{...register("categoryId")}
-								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 								defaultValue={defaultValues?.categoryId ?? ""}>
 								<option value=''>Selecciona una categoría</option>
 								{categories.map((category) => (
@@ -289,7 +324,7 @@ export function ProductForm({
 								type='text'
 								placeholder='Nombre de la nueva categoría'
 								{...register("newCategoryName")}
-								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 							/>
 							{errors.newCategoryName && (
 								<p className='text-xs text-red-500'>
@@ -316,7 +351,7 @@ export function ProductForm({
 								step='0.01'
 								min={0}
 								{...register("costPrice", { valueAsNumber: true })}
-								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 							/>
 							{errors.costPrice && (
 								<p className='text-xs text-red-500'>
@@ -337,7 +372,7 @@ export function ProductForm({
 								min={0}
 								{...register("sellPrice", { valueAsNumber: true })}
 								placeholder='Opcional'
-								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 							/>
 							{errors.sellPrice && (
 								<p className='text-xs text-red-500'>
@@ -351,7 +386,7 @@ export function ProductForm({
 						<button
 							type='button'
 							onClick={() => setShowRecommendations(true)}
-							className='inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100'>
+							className='inline-flex items-center rounded-md border border-blush-200 bg-blush-50 px-3 py-2 text-sm font-medium text-blush-600 transition hover:bg-blush-100'>
 							Obtener recomendaciones
 						</button>
 
@@ -359,6 +394,7 @@ export function ProductForm({
 							<PriceTiers
 								recommendation={recommendation}
 								currency={watch("currency") ?? "NIO"}
+								onSelectTier={handleTierSelect}
 							/>
 						)}
 					</div>
@@ -386,7 +422,7 @@ export function ProductForm({
 							id='currency'
 							type='text'
 							{...register("currency")}
-							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 							placeholder='NIO'
 						/>
 						{errors.currency && (
@@ -400,7 +436,7 @@ export function ProductForm({
 				<button
 					type='submit'
 					disabled={isSubmitting || isPending}
-					className='inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60'>
+					className='inline-flex items-center rounded-md bg-blush-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blush-400 disabled:cursor-not-allowed disabled:opacity-60'>
 					{isSubmitting || isPending ? "Guardando…" : submitLabel}
 				</button>
 			</div>

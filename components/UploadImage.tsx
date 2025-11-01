@@ -68,7 +68,7 @@ export function UploadImage({
 						type='file'
 						accept={accept}
 						disabled={disabled}
-						className='block w-full cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60'
+						className='block w-full cursor-pointer rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300 disabled:cursor-not-allowed disabled:opacity-60'
 						onChange={(event) => {
 							const file = event.target.files?.[0] ?? null;
 							if (file) {

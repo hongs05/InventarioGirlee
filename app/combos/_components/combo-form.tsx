@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -8,7 +8,7 @@ import { UploadImage } from "@/components/UploadImage";
 import { ComboSummary } from "@/components/ComboSummary";
 import type { ComboSummaryItem } from "@/components/ComboSummary";
 import { PriceTiers } from "@/components/PriceTiers";
-import { recommendPrice } from "@/lib/pricing";
+import { recommendPrice, type PriceRecommendation } from "@/lib/pricing";
 import {
 	ComboFormValues,
 	comboFormSchema,
@@ -75,6 +75,7 @@ export function ComboForm({
 	});
 
 	const { register, handleSubmit, watch, setValue, reset, formState } = form;
+	const suggestedPriceValue = watch("suggestedPrice");
 
 	useEffect(() => {
 		register("imageFile");
@@ -122,18 +123,32 @@ export function ComboForm({
 		};
 	}, [selectedItems, packagingCost]);
 
-	const recommendation = useMemo(() => {
-		if (totals.totalCost <= 0) return null;
-		return recommendPrice({ costPrice: totals.totalCost });
-	}, [totals.totalCost]);
+const recommendation = useMemo(() => {
+	if (totals.totalCost <= 0) return null;
+	return recommendPrice({ costPrice: totals.totalCost });
+}, [totals.totalCost]);
 
-	useEffect(() => {
-		if (recommendation) {
-			setValue("suggestedPrice", recommendation.suggested, {
-				shouldDirty: true,
-			});
-		}
-	}, [recommendation, setValue]);
+const handleTierSelect = useCallback(
+	(_tier: PriceRecommendation["appliedTier"], value: number) => {
+		setValue("suggestedPrice", Number(value.toFixed(2)), {
+			shouldDirty: true,
+			shouldValidate: true,
+		});
+	},
+	[setValue],
+);
+
+useEffect(() => {
+	if (
+		recommendation &&
+		!formState.dirtyFields?.suggestedPrice &&
+		recommendation.suggested !== undefined
+	) {
+		setValue("suggestedPrice", Number(recommendation.suggested.toFixed(2)), {
+			shouldDirty: false,
+		});
+	}
+}, [formState.dirtyFields?.suggestedPrice, recommendation, setValue]);
 
 	const onSubmit = handleSubmit((values) => {
 		const formData = new FormData();
@@ -242,7 +257,7 @@ export function ComboForm({
 				</div>
 
 				{successMessage && (
-					<div className='rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800'>
+					<div className='rounded-md border border-blush-200 bg-blush-50 px-4 py-3 text-sm text-blush-700'>
 						{successMessage}
 					</div>
 				)}
@@ -262,7 +277,7 @@ export function ComboForm({
 							id='name'
 							type='text'
 							{...register("name")}
-							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 						/>
 						{formState.errors.name && (
 							<p className='text-xs text-red-500'>
@@ -281,7 +296,7 @@ export function ComboForm({
 							id='description'
 							rows={3}
 							{...register("description")}
-							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 							placeholder='Detalles del combo, beneficios, packaging, etc.'
 						/>
 						{formState.errors.description && (
@@ -304,7 +319,7 @@ export function ComboForm({
 								step='0.01'
 								min={0}
 								{...register("packagingCost", { valueAsNumber: true })}
-								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 							/>
 							{formState.errors.packagingCost && (
 								<p className='text-xs text-red-500'>
@@ -321,7 +336,7 @@ export function ComboForm({
 							<select
 								id='status'
 								{...register("status")}
-								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'>
+								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'>
 								{statusOptions.map((statusValue) => (
 									<option key={statusValue} value={statusValue}>
 										{statusValue === "active"
@@ -356,7 +371,7 @@ export function ComboForm({
 							placeholder='Buscar producto'
 							value={searchTerm}
 							onChange={(event) => setSearchTerm(event.target.value)}
-							className='w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:w-64'
+							className='w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300 sm:w-64'
 						/>
 					</div>
 
@@ -417,7 +432,7 @@ export function ComboForm({
 										onChange={(event) =>
 											handleQtyChange(item.id, Number(event.target.value) || 1)
 										}
-										className='h-9 w-16 rounded-md border border-gray-300 px-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+										className='h-9 w-16 rounded-md border border-gray-300 px-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 									/>
 									<button
 										type='button'
@@ -447,7 +462,11 @@ export function ComboForm({
 				<ComboSummary
 					items={selectedItems}
 					packagingCost={Number(packagingCost) || 0}
-					suggestedPrice={recommendation?.suggested ?? undefined}
+					suggestedPrice={
+						typeof suggestedPriceValue === "number"
+							? suggestedPriceValue
+							: recommendation?.suggested ?? undefined
+					}
 					currency={currency}
 				/>
 
@@ -455,14 +474,18 @@ export function ComboForm({
 					<h3 className='text-sm font-semibold text-gray-900'>
 						Recomendaciones de precio
 					</h3>
-					<PriceTiers recommendation={recommendation} currency={currency} />
+					<PriceTiers
+						recommendation={recommendation}
+						currency={currency}
+						onSelectTier={handleTierSelect}
+					/>
 				</div>
 
 				<div className='flex items-center justify-end'>
 					<button
 						type='submit'
 						disabled={isPending || formState.isSubmitting}
-						className='inline-flex items-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60'>
+						className='inline-flex items-center rounded-md bg-blush-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blush-400 disabled:cursor-not-allowed disabled:opacity-60'>
 						{isPending || formState.isSubmitting ? "Guardando…" : submitLabel}
 					</button>
 				</div>
