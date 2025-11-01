@@ -59,7 +59,14 @@ Update the values in `.env.local` with your Supabase credentials:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=your-project-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
+
+> **Why is the service role key required?**
+>
+> Server Actions that create or update productos/combinations use Supabase Storage and database mutations that bypass Row Level Security to ensure uploads succeed consistently. The service role key is only used on the server and never exposed to the browser. Treat it like any other secret and avoid committing it to source control.
+
+You can find all three values in **Project Settings → API** within the Supabase dashboard. Rotate the key immediately if it is ever exposed.
 
 ### 5. Run the development server
 
