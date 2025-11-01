@@ -25,7 +25,8 @@ export default async function SignupPage() {
     })
 
     if (error) {
-      redirect('/signup?error=Could not create account')
+      const errorMessage = encodeURIComponent(error.message || 'Could not create account')
+      redirect(`/signup?error=${errorMessage}`)
     }
 
     redirect('/login?message=Check your email to confirm your account')

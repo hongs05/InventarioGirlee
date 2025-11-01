@@ -25,7 +25,8 @@ export default async function LoginPage() {
     })
 
     if (error) {
-      redirect('/login?error=Invalid credentials')
+      const errorMessage = encodeURIComponent(error.message || 'Invalid credentials')
+      redirect(`/login?error=${errorMessage}`)
     }
 
     redirect('/dashboard')
