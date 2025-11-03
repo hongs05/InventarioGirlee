@@ -11,6 +11,26 @@ const optionalTrimmedString = z
 		return trimmed.length > 0 ? trimmed : undefined;
 	});
 
+const optionalPhoneNumber = z
+	.union([z.string(), z.number(), z.null(), z.undefined()])
+	.transform((value) => {
+		if (value === undefined || value === null) {
+			return undefined;
+		}
+
+		if (typeof value === "number") {
+			const digits = Math.trunc(value).toString().replace(/\D+/g, "");
+			return digits.length ? digits : undefined;
+		}
+
+		const trimmed = String(value).trim();
+		const digits = trimmed.replace(/\D+/g, "");
+		return digits.length ? digits : undefined;
+	})
+	.refine((value) => value === undefined || value.length >= 7, {
+		message: "Ingrese un teléfono válido",
+	});
+
 const optionalNumber = z
 	.union([z.string(), z.number(), z.nan(), z.null(), z.undefined()])
 	.transform((value) => {
@@ -177,7 +197,7 @@ export const orderPaymentMethodEnum = z.enum(["cash", "card", "transfer"]);
 export const posOrderSchema = z
 	.object({
 		customerName: optionalTrimmedString.optional(),
-		customerPhone: optionalTrimmedString.optional(),
+		customerPhone: optionalPhoneNumber,
 		notes: optionalTrimmedString.optional(),
 		paymentMethod: orderPaymentMethodEnum.default("cash"),
 		receiptNumber: optionalTrimmedString.optional(),

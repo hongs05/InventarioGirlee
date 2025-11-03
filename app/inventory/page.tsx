@@ -238,19 +238,24 @@ async function InventoryTable({ products }: { products: ProductRow[] }) {
 				<tbody className='divide-y divide-gray-200'>
 					{products.map((product) => {
 						const categoryName = product.categories?.name ?? undefined;
-						const recommendation = recommendPrice({
-							costPrice: Number(product.cost_price ?? 0),
-							categoryName,
-						});
+						const costPrice = Number(product.cost_price ?? 0);
+						const recommendation =
+							costPrice > 0
+								? recommendPrice({
+										costPrice,
+										categoryName,
+								  })
+								: null;
+						const imageSrc = resolveProductImageSrc(product.image_path);
 
 						return (
 							<tr key={product.id} className='hover:bg-gray-50'>
 								<td className='px-4 py-4'>
 									<div className='flex items-center gap-3'>
 										<div className='relative h-12 w-12 overflow-hidden rounded-md border border-gray-200 bg-gray-100'>
-											{product.image_path ? (
+											{imageSrc ? (
 												<Image
-													src={product.image_path}
+													src={imageSrc}
 													alt={product.name}
 													fill
 													className='object-cover'
@@ -276,7 +281,9 @@ async function InventoryTable({ products }: { products: ProductRow[] }) {
 									{formatCurrency(product.cost_price, product.currency)}
 								</td>
 								<td className='px-4 py-4 text-sm text-gray-700'>
-									{formatCurrency(recommendation.suggested, product.currency)}
+									{recommendation
+										? formatCurrency(recommendation.suggested, product.currency)
+										: "Sin datos"}
 								</td>
 								<td className='px-4 py-4 text-sm text-gray-700'>
 									{formatQuantity(product.quantity)}
@@ -323,12 +330,41 @@ function StatusBadge({ status }: { status: string }) {
 	}
 	if (status === "draft") {
 		return (
-			<span className={`${baseClass} bg-blush-200 text-blush-700`}>Borrador</span>
+			<span className={`${baseClass} bg-blush-200 text-blush-700`}>
+				Borrador
+			</span>
 		);
 	}
 	return (
 		<span className={`${baseClass} bg-gray-200 text-gray-600`}>Archivado</span>
 	);
+}
+
+function resolveProductImageSrc(
+	imagePath: string | null | undefined,
+): string | null {
+	if (!imagePath) {
+		return null;
+	}
+
+	const trimmed = imagePath.trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+		return trimmed;
+	}
+
+	if (trimmed.startsWith("data:")) {
+		return trimmed;
+	}
+
+	if (trimmed.startsWith("/")) {
+		return trimmed;
+	}
+
+	return null;
 }
 
 function formatCurrency(value: number, currency = "NIO") {

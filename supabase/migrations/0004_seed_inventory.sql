@@ -1,0 +1,213 @@
+insert into public.categories
+    (name)
+values
+    ('Cuidado de la Piel'),
+    ('Perfumería'),
+    ('Cuidado del Cabello'),
+    ('Maquillaje'),
+    ('Ropa')
+on conflict
+(name) do nothing;
+
+insert into public.products
+    (sku, name, description, category_id, cost_price, sell_price, currency, status, image_path, meta, created_by)
+values
+    ('SNE002', 'Limpiador en gel hidratante Hydro Boost con Ã¡cido hialurÃ³nico', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 879.86, 1495.76, 'NIO', 'active', 'Limpiador en gel hidratante Hydro Boost con Ã¡cido hialurÃ³nico..jpeg', '{"brand":"Neutrogena","legacy_code":"SNE002","subcategory":"N/A","initial_quantity":1,"source_photo":"Limpiador en gel hidratante Hydro Boost con Ã¡cido hialurÃ³nico..jpeg","legacy_store_price":1073,"legacy_total":879.86}', null),
+    ('SNE003', 'Hidratante para el acnÃ© sin aceite', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 570.00, 969.00, 'NIO', 'active', 'Hidratante para el acnÃ© sin aceite.jpeg', '{"brand":"Neutrogena","legacy_code":"SNE003","subcategory":"N/A","initial_quantity":1,"source_photo":"Hidratante para el acnÃ© sin aceite.jpeg","legacy_store_price":870,"legacy_total":570}', null),
+    ('SNE001', 'Limpiador facial sin aceite para piel con acnÃ©', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 570.00, 969.00, 'NIO', 'active', 'Limpiador facial sin aceite para piel con acnÃ©.jpeg', '{"brand":"Neutrogena","legacy_code":"SNE001","subcategory":"N/A","initial_quantity":1,"source_photo":"Limpiador facial sin aceite para piel con acnÃ©.jpeg","legacy_store_price":870,"legacy_total":570}', null),
+    ('SEL002', 'Hidratante diario con Ã¡cido hialurÃ³nico, aceite de semilla de jojoba y vitamina E', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 576.46, 979.98, 'NIO', 'active', '1 Hidratante diario con Ã¡cido hialurÃ³nico, aceite de semilla de jojoba y vitamina E.jpeg', '{"brand":"e.l.f.","legacy_code":"SEL002","subcategory":"N/A","initial_quantity":1,"source_photo":"1 Hidratante diario con Ã¡cido hialurÃ³nico, aceite de semilla de jojoba y vitamina E.jpeg","legacy_store_price":703,"legacy_total":576.46}', null),
+    ('SEL002-1', 'Hidratante diario con Ã¡cido hialurÃ³nico, aceite de semilla de jojoba y vitamina E', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 576.46, 979.98, 'NIO', 'active', '2 Hidratante diario con Ã¡cido hialurÃ³nico, aceite de semilla de jojoba y vitamina E.jpeg', '{"brand":"e.l.f.","legacy_code":"SEL002","subcategory":"N/A","initial_quantity":1,"source_photo":"2 Hidratante diario con Ã¡cido hialurÃ³nico, aceite de semilla de jojoba y vitamina E.jpeg","legacy_store_price":703,"legacy_total":576.46}', null),
+    ('BBB001', 'LociÃ³n con protector solar Costa Rica aroma PiÃ±a Rosa Amanecer', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 545.00, 926.50, 'NIO', 'active', 'LociÃ³n con protector solar Costa Rica aroma PiÃ±a Rosa Amanecer.jpeg', '{"brand":"Bath and Body","legacy_code":"BBB001","subcategory":"N/A","initial_quantity":1,"source_photo":"LociÃ³n con protector solar Costa Rica aroma PiÃ±a Rosa Amanecer.jpeg","legacy_store_price":666,"legacy_total":545}', null),
+    ('BBB002', 'LociÃ³n con protector solar Motion Wakiki, aroma Coco de Playa', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 545.00, 926.50, 'NIO', 'active', 'LociÃ³n con protector solar Motion Costa Rica, aroma Coco de Playa Waikiki.jpeg', '{"brand":"Bath and Body","legacy_code":"BBB002","subcategory":"N/A","initial_quantity":1,"source_photo":"LociÃ³n con protector solar Motion Costa Rica, aroma Coco de Playa Waikiki.jpeg","legacy_store_price":666,"legacy_total":545}', null),
+    ('SN001', 'Factores Naturales de HidrataciÃ³n + Ãcido HialurÃ³nico de The Ordinary', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 600.00, 1020.00, 'NIO', 'active', '1 Factores Naturales de HidrataciÃ³n + Ãcido HialurÃ³nico de The Ordinary.jpeg', '{"brand":"The Ordinary","legacy_code":"SN001","subcategory":"N/A","initial_quantity":1,"condition":"Cajas manchadas de azul y suciedad","source_photo":"1 Factores Naturales de HidrataciÃ³n + Ãcido HialurÃ³nico de The Ordinary.jpeg","legacy_store_price":925,"legacy_total":600}', null),
+    ('SN001-1', 'Factores Naturales de HidrataciÃ³n + Ãcido HialurÃ³nico de The Ordinary', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 600.00, 1020.00, 'NIO', 'active', '2 Factores Naturales de HidrataciÃ³n + Ãcido HialurÃ³nico de The Ordinary.jpeg', '{"brand":"The Ordinary","legacy_code":"SN001","subcategory":"N/A","initial_quantity":1,"condition":"Cajas manchadas de azul y suciedad","source_photo":"2 Factores Naturales de HidrataciÃ³n + Ãcido HialurÃ³nico de The Ordinary.jpeg","legacy_store_price":925,"legacy_total":600}', null),
+    ('10', 'Factores Naturales de HidrataciÃ³n + Ãcido HialurÃ³nico de The Ordinary', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 600.00, 1020.00, 'NIO', 'active', '3 Factores Naturales de HidrataciÃ³n + Ãcido HialurÃ³nico de The Ordinary.jpeg', '{"brand":"The Ordinary","legacy_code":"N/A","subcategory":"N/A","initial_quantity":1,"condition":"Cajas manchadas de azul y suciedad, aboyadura en la caja","source_photo":"3 Factores Naturales de HidrataciÃ³n + Ãcido HialurÃ³nico de The Ordinary.jpeg","legacy_store_price":925,"legacy_total":600}', null),
+    ('SCV001', 'Suero Ultra Concentrado', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 850.00, 1445.00, 'NIO', 'active', 'Suero Ultra Concentrado.jpeg', '{"brand":"CeraVe","legacy_code":"SCV001","subcategory":"N/A","initial_quantity":1,"condition":"Caja manchada con suciedas, aboyaduras, manchas amarillas","source_photo":"Suero Ultra Concentrado.jpeg","legacy_store_price":1073,"legacy_total":850}', null),
+    ('SCR002', 'Bloqueador solar invisible â Ultra protecciÃ³n', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 910.20, 1547.34, 'NIO', 'active', 'Bloqueador solar invisible â Ultra protecciÃ³n.jpeg', '{"brand":"La Roche-Posey","legacy_code":"SCR002","subcategory":"N/A","initial_quantity":1,"condition":"Envoltura de plastico rota","source_photo":"Bloqueador solar invisible â Ultra protecciÃ³n.jpeg","legacy_store_price":1110,"legacy_total":910.2}', null),
+    ('CEL001', 'Bloqueador SPF 35', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 667.48, 1134.72, 'NIO', 'active', 'Bloqueador SPF 35.jpeg', '{"brand":"e.l.f.","legacy_code":"CEL001","subcategory":"N/A","initial_quantity":1,"condition":"Manchas pequenas y aboyaduras","source_photo":"Bloqueador SPF 35.jpeg","legacy_store_price":814,"legacy_total":667.48}', null),
+    ('STO02', 'Set para Renovar e Hidratar para exfoliacion avanzada', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 910.20, 1547.34, 'NIO', 'active', 'Set para Renovar e Hidratar.HEIC', '{"brand":"The Ordinary","legacy_code":"STO02","subcategory":"Set","initial_quantity":1,"condition":"Aboyaduras marcas","source_photo":"Set para Renovar e Hidratar.HEIC","legacy_store_price":1110,"legacy_total":910.2}', null),
+    ('SGR001', 'Set de cuidado facial Fruit Babies', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 1887.00, 3207.90, 'NIO', 'active', 'Set de cuidado facial Fruit Babies.jpeg', '{"brand":"Glow Recipe","legacy_code":"SGR001","subcategory":"Set","initial_quantity":1,"source_photo":"Set de cuidado facial Fruit Babies.jpeg","legacy_store_price":2183,"legacy_total":1887}', null),
+    ('SXI001', 'Crema de Acido Hialuronico', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 250.00, 425.00, 'NIO', 'active', 'Crema de acido hialuronico.jpeg', '{"brand":"Yimeixi","legacy_code":"SXI001","subcategory":"N/A","initial_quantity":1,"source_photo":"Crema de acido hialuronico.jpeg","legacy_store_price":481,"legacy_total":250}', null),
+    ('SCE001', 'Bloqueador Solar', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 455.10, 773.67, 'NIO', 'active', '1 Bloqueador Solar.jpeg', '{"brand":"Centella","legacy_code":"SCE001","subcategory":"N/A","initial_quantity":1,"source_photo":"1 Bloqueador Solar.jpeg","legacy_store_price":555,"legacy_total":455.1}', null),
+    ('SCE001-1', 'Bloqueador Solar', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 395.00, 671.50, 'NIO', 'active', '2 Bloqueador Solar.jpeg', '{"brand":"Centella","legacy_code":"SCE001","subcategory":"N/A","initial_quantity":1,"condition":"Caja manchada con suciedas, aboyaduras, manchas amarillas","source_photo":"2 Bloqueador Solar.jpeg","legacy_store_price":500,"legacy_total":395}', null),
+    ('SCE000', 'Bloqueador Solar', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 395.00, 671.50, 'NIO', 'active', '3Bloqueador Solar.HEIC', '{"brand":"Centella","legacy_code":"SCE000","subcategory":"N/A","initial_quantity":1,"condition":"Caja con aboyaduras.","source_photo":"3Bloqueador Solar.HEIC","legacy_store_price":500,"legacy_total":395}', null),
+    ('SCE001-2', 'Bloqueador Solar', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 455.10, 773.67, 'NIO', 'active', '4Bloqueador Solar.HEIC', '{"brand":"Centella","legacy_code":"SCE001","subcategory":"N/A","initial_quantity":1,"condition":"Caja con aboyaduras.","source_photo":"4Bloqueador Solar.HEIC","legacy_store_price":500,"legacy_total":455.1}', null),
+    ('SCE001-3', 'Bloqueador Solar', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 455.10, 773.67, 'NIO', 'active', '5 Bloqueador Solar.HEIC', '{"brand":"Centella","legacy_code":"SCE001","subcategory":"Perfume","initial_quantity":1,"source_photo":"5 Bloqueador Solar.HEIC","legacy_store_price":500,"legacy_total":455.1}', null),
+    ('PVS001', 'Perfume Very Sexy Oasis', null, (select id
+        from public.categories
+        where name = 'Perfumería'), 1295.00, 2201.50, 'NIO', 'active', 'Perfume Victoria Secret.HEIC', '{"brand":"Victoria Secret","legacy_code":"PVS001","subcategory":"Perfume","initial_quantity":2,"source_photo":"Perfume Victoria Secret.HEIC","legacy_store_price":1665,"legacy_total":2590}', null),
+    ('FVS001', 'Body fragancia Fabulous', null, (select id
+        from public.categories
+        where name = 'Perfumería'), 500.00, 850.00, 'NIO', 'active', 'Body Fragancia Fabolous.jpeg', '{"brand":"Victoria Secret","legacy_code":"FVS001","subcategory":"Body","initial_quantity":1,"condition":"Aboyadura en la esquina izquierda superior","source_photo":"Body Fragancia Fabolous.jpeg","legacy_store_price":703,"legacy_total":500}', null),
+    ('FVS006', 'Body fragancia Love Spell', null, (select id
+        from public.categories
+        where name = 'Perfumería'), 500.00, 850.00, 'NIO', 'active', 'Body fragancia Love Spell.jpeg', '{"brand":"Victoria Secret","legacy_code":"FVS006","subcategory":"Body","initial_quantity":1,"source_photo":"Body fragancia Love Spell.jpeg","legacy_store_price":629,"legacy_total":500}', null),
+    ('FVS001-1', 'Body fragancia So in Love', null, (select id
+        from public.categories
+        where name = 'Perfumería'), 500.00, 850.00, 'NIO', 'active', 'Body Fragancia So in love.jpeg', '{"brand":"Victoria Secret","legacy_code":"FVS001","subcategory":"Body","initial_quantity":1,"source_photo":"Body Fragancia So in love.jpeg","legacy_store_price":703,"legacy_total":500}', null),
+    ('SVS004', 'Body fragancia Sugar Sky', null, (select id
+        from public.categories
+        where name = 'Perfumería'), 500.00, 850.00, 'NIO', 'active', 'Fragancia Body Sugar Sky Pink.jpeg', '{"brand":"Pink","legacy_code":"SVS004","subcategory":"Body","initial_quantity":1,"source_photo":"Fragancia Body Sugar Sky Pink.jpeg","legacy_store_price":629,"legacy_total":500}', null),
+    ('BPV001', 'Set Body y Locion', null, (select id
+        from public.categories
+        where name = 'Perfumería'), 1000.00, 1700.00, 'NIO', 'active', 'Set Body y Locion .jpeg', '{"brand":"Pink","legacy_code":"BPV001","subcategory":"Set locion y body","initial_quantity":1,"source_photo":"Set Body y Locion .jpeg","legacy_store_price":1295,"legacy_total":1000}', null),
+    ('28', 'Mini crema de manos diferentes olores', null, (select id
+        from public.categories
+        where name = 'Cuidado de la Piel'), 30.00, 51.00, 'NIO', 'active', 'Mini Crema de Manos.jpeg', '{"brand":"Shein","legacy_code":"N/A","subcategory":"Crema de manos","initial_quantity":9,"source_photo":"Mini Crema de Manos.jpeg","legacy_total":270}', null),
+    ('HGA001', 'Protector Termico Garnier', null, (select id
+        from public.categories
+        where name = 'Cuidado del Cabello'), 500.00, 850.00, 'NIO', 'active', 'ProtectorTermicoGarnier.jpeg', '{"brand":"Garnier","legacy_code":"HGA001","subcategory":"Protector Termico","initial_quantity":2,"source_photo":"ProtectorTermicoGarnier.jpeg","legacy_store_price":888,"legacy_total":1000}', null),
+    ('HPR001', 'Paleta De Sombra Short But Sweet', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 561.70, 954.89, 'NIO', 'active', '1Paleta De Sombra ShortButSweet.jpeg', '{"brand":"Prolux","legacy_code":"HPR001","subcategory":"N/A","initial_quantity":1,"source_photo":"1Paleta De Sombra ShortButSweet.jpeg","legacy_store_price":685,"legacy_total":561.7}', null),
+    ('MPR002', 'Paleta De Sombra Prismatic', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 500.00, 850.00, 'NIO', 'active', '2Paleta De Sombra Prismatic.jpeg', '{"brand":"Prolux","legacy_code":"MPR002","subcategory":"Sombra","initial_quantity":1,"source_photo":"2Paleta De Sombra Prismatic.jpeg","legacy_store_price":685,"legacy_total":500}', null),
+    ('MPX001', 'Paleta De Sombra Px Look', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 400.00, 680.00, 'NIO', 'active', 'EyeShadow.jpeg', '{"brand":"Px Look","legacy_code":"MPX001","subcategory":"Sombra","initial_quantity":1,"source_photo":"EyeShadow.jpeg","legacy_store_price":555,"legacy_total":400}', null),
+    ('MBI001', 'Paleta De Sombra Pretty Pink', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 270.00, 459.00, 'NIO', 'active', 'SombraDeColoresPrettyPink.jpeg', '{"brand":"Beauty Intuition","legacy_code":"MBI001","subcategory":"Sombra","initial_quantity":1,"source_photo":"SombraDeColoresPrettyPink.jpeg","legacy_store_price":333,"legacy_total":270}', null),
+    ('MBI002', 'Paleta De Sombra Pretty Pink', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 270.00, 459.00, 'NIO', 'active', 'SombraDeColoresPrettyPink.jpeg', '{"brand":"Beauty Intuition","legacy_code":"MBI002","subcategory":"Sombra","initial_quantity":1,"source_photo":"SombraDeColoresPrettyPink.jpeg","legacy_store_price":333,"legacy_total":270}', null),
+    ('MPX002', 'Paleta De Sombra Px Look', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 545.00, 926.50, 'NIO', 'active', 'SombraPxLook28.jpeg', '{"brand":"Px Look","legacy_code":"MPX002","subcategory":"Sombra","initial_quantity":1,"condition":"Caja Abierta","source_photo":"SombraPxLook28.jpeg","legacy_store_price":667,"legacy_total":545}', null),
+    ('MRB001', 'Set De Labios, Iluminador y Contrno', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 1665.00, 2830.50, 'NIO', 'active', 'SetDeIluminador.jpeg', '{"brand":"Rare Beauty","legacy_code":"MRB001","subcategory":"Iluminador","initial_quantity":1,"source_photo":"SetDeIluminador.jpeg","legacy_store_price":1813,"legacy_total":1665}', null),
+    ('MVS001', 'Brillo Labial Victoria Secret', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 410.00, 697.00, 'NIO', 'active', 'BrilloLabialVictoriaSecret.jpeg', '{"brand":"Victoria Secret","legacy_code":"MVS001","subcategory":"Brillo","initial_quantity":2,"source_photo":"BrilloLabialVictoriaSecret.jpeg","legacy_store_price":500,"legacy_total":820}', null),
+    ('MLA002', 'Labial Hidratante', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 175.00, 297.50, 'NIO', 'active', 'LabialHidratanteLACOLORS.jpeg', '{"brand":"L.A.Colors","legacy_code":"MLA002","subcategory":"Labial","initial_quantity":2,"source_photo":"LabialHidratanteLACOLORS.jpeg","legacy_store_price":205,"legacy_total":350}', null),
+    ('MLA004', 'Voluminizador de labios', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 175.00, 297.50, 'NIO', 'active', 'VolumizadorLabial.jpeg', '{"brand":"L.A.Colors","legacy_code":"MLA004","subcategory":"Labial","initial_quantity":1,"source_photo":"VolumizadorLabial.jpeg","legacy_store_price":205,"legacy_total":175}', null),
+    ('MIO003', 'Tinte Labial', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 195.00, 331.50, 'NIO', 'active', 'TinteLabial.jpeg', '{"brand":"IONI","legacy_code":"MIO003","subcategory":"Tinte","initial_quantity":1,"source_photo":"TinteLabial.jpeg","legacy_store_price":240,"legacy_total":195}', null),
+    ('MIO002', 'Rubor Liquido', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 280.00, 476.00, 'NIO', 'active', 'RuborLiquido.jpeg', '{"brand":"IONI","legacy_code":"MIO002","subcategory":"Rubor","initial_quantity":1,"source_photo":"RuborLiquido.jpeg","legacy_store_price":333,"legacy_total":280}', null),
+    ('MIO001', 'Rubor voluminizador', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 220.00, 374.00, 'NIO', 'active', 'RuborVolumizador.jpeg', '{"brand":"IONI","legacy_code":"MIO001","subcategory":"Rubor","initial_quantity":1,"source_photo":"RuborVolumizador.jpeg","legacy_store_price":260,"legacy_total":220}', null),
+    ('MLA003', '2 en 1 Labial Y Brillo', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 175.00, 297.50, 'NIO', 'active', 'LABIALYBRILLO.jpeg', '{"brand":"L.A.Colors","legacy_code":"MLA003","subcategory":"Labial","initial_quantity":1,"source_photo":"LABIALYBRILLO.jpeg","legacy_store_price":205,"legacy_total":175}', null),
+    ('MLA001', '3 en 1 Labial Y Brillo', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 175.00, 297.50, 'NIO', 'active', 'LabialYBrillo1.jpeg', '{"brand":"L.A.Colors","legacy_code":"MLA001","subcategory":"Labial","initial_quantity":1,"source_photo":"LabialYBrillo1.jpeg","legacy_store_price":205,"legacy_total":175}', null),
+    ('MRB002', 'DÃºo de ojos Essentials de Selena', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 1036.00, 1761.20, 'NIO', 'active', 'esencial para ojos de Selena.jpeg', '{"brand":"Rare Beauty","legacy_code":"MRB002","subcategory":"Sombra","initial_quantity":2,"source_photo":"esencial para ojos de Selena.jpeg","legacy_store_price":1258,"legacy_total":2072}', null),
+    ('MRB004', 'Contorno LÃ­quido Soft Pinch', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 1274.28, 2166.28, 'NIO', 'active', 'Contorno LiÌquido Soft Pinch.jpeg', '{"brand":"Rare Beauty","legacy_code":"MRB004","subcategory":"Contorno","initial_quantity":3,"condition":"Caja En Mal Estado","source_photo":"Contorno LiÌquido Soft Pinch.jpeg","legacy_store_price":1554,"legacy_total":3822.84}', null),
+    ('MEL001', 'Delineador Liquido', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 300.00, 510.00, 'NIO', 'active', 'DelineadorElf.jpeg', '{"brand":"e.l.f.","legacy_code":"MEL001","subcategory":"Delineador","initial_quantity":1,"condition":"Caja En Mal Estado","source_photo":"DelineadorElf.jpeg","legacy_store_price":555,"legacy_total":300}', null),
+    ('MIO005', 'Gel fijador escultor para cejas', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 240.00, 408.00, 'NIO', 'active', 'Gel fijador escultor para cejas.jpeg', '{"brand":"IONI","legacy_code":"MIO005","subcategory":"Fijador","initial_quantity":1,"source_photo":"Gel fijador escultor para cejas.jpeg","legacy_store_price":296,"legacy_total":240}', null),
+    ('MOS001', 'Spray fijador mate e impermeable', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 820.00, 1394.00, 'NIO', 'active', 'Spray fijador mate e impermeable.jpeg', '{"brand":"One/Size","legacy_code":"MOS001","subcategory":"Fijador","initial_quantity":1,"source_photo":"Spray fijador mate e impermeable.jpeg","legacy_store_price":999,"legacy_total":820}', null),
+    ('MSE001', 'Kit de labios âPerfect Poutâ de Sephora', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 1980.00, 3366.00, 'NIO', 'active', 'Kit de labios âPerfect Poutâ de Sephora.jpeg', '{"brand":"Sephora","legacy_code":"MSE001","subcategory":"Labial","initial_quantity":1,"condition":"Caja En Mal Estado","source_photo":"Kit de labios âPerfect Poutâ de Sephora.jpeg","legacy_store_price":2479,"legacy_total":1980}', null),
+    ('MVP001', 'Color de labios + rubor en crema', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 280.00, 476.00, 'NIO', 'active', 'Color de labios + rubor en crema.jpeg', '{"brand":"Clean Beauty","legacy_code":"MVP001","subcategory":"Rubor","initial_quantity":1,"source_photo":"Color de labios + rubor en crema.jpeg","legacy_store_price":333,"legacy_total":280}', null),
+    ('MSH001', 'Balsamo De Labios', null, (select id
+        from public.categories
+        where name = 'Maquillaje'), 37.00, 62.90, 'NIO', 'active', 'Balsamo Labial.jpeg', '{"brand":"Miss Factor X","legacy_code":"MSH001","subcategory":"Labial","initial_quantity":35,"source_photo":"Balsamo Labial.jpeg","legacy_store_price":70,"legacy_total":1295}', null),
+    ('RCK002', 'Calzon Ck L Blanco', null, (select id
+        from public.categories
+        where name = 'Ropa'), 0.00, 0.00, 'NIO', 'active', 'CalzonCKB.jpeg', '{"brand":"Calvin Klein","legacy_code":"RCK002","subcategory":"Interior","initial_quantity":1,"source_photo":"CalzonCKB.jpeg","legacy_store_price":1000,"legacy_total":0,"note_2":"820"}', null),
+    ('55', 'Calzon Ck L Gris', null, (select id
+        from public.categories
+        where name = 'Ropa'), 0.00, 0.00, 'NIO', 'active', 'CalzonCKG.jpeg', '{"brand":"Calvin Klein","legacy_code":"Sin Codigo","subcategory":"Interior","initial_quantity":1,"source_photo":"CalzonCKG.jpeg","legacy_store_price":0,"legacy_total":0,"note_2":"820"}', null),
+    ('RCK001', 'Calzon Ck M Verde', null, (select id
+        from public.categories
+        where name = 'Ropa'), 0.00, 0.00, 'NIO', 'active', 'CalzonCKV.jpeg', '{"brand":"Calvin Klein","legacy_code":"RCK001","subcategory":"Interior","initial_quantity":1,"source_photo":"CalzonCKV.jpeg","legacy_store_price":1000,"legacy_total":0,"note_2":"820"}', null),
+    ('RCK002-1', 'Calzon Ck M Gris', null, (select id
+        from public.categories
+        where name = 'Ropa'), 0.00, 0.00, 'NIO', 'active', 'CalzonCKG2.jpeg', '{"brand":"Calvin Klein","legacy_code":"RCK002","subcategory":"Interior","initial_quantity":1,"source_photo":"CalzonCKG2.jpeg","legacy_store_price":1000,"legacy_total":0,"note_2":"820"}', null),
+    ('58', 'Calzon Tommy Gris M', null, (select id
+        from public.categories
+        where name = 'Ropa'), 0.00, 0.00, 'NIO', 'active', 'CalzonTommyHilfGM.jpeg', '{"brand":"Tommy Hilfiger","legacy_code":"Sin Codigo","subcategory":"Interior","initial_quantity":1,"source_photo":"CalzonTommyHilfGM.jpeg","legacy_store_price":1000,"legacy_total":0,"note_2":"820"}', null),
+    ('59', 'Calzon Tommy Azul M', null, (select id
+        from public.categories
+        where name = 'Ropa'), 0.00, 0.00, 'NIO', 'active', 'CalzonTommyHilfAzul.jpeg', '{"brand":"Tommy Hilfiger","legacy_code":"Sin Codigo","subcategory":"Interior","initial_quantity":1,"source_photo":"CalzonTommyHilfAzul.jpeg","legacy_store_price":1000,"legacy_total":0,"note_2":"820"}', null),
+    ('RCK001-1', 'Calzon Tommy Rosa M', null, (select id
+        from public.categories
+        where name = 'Ropa'), 0.00, 0.00, 'NIO', 'active', 'CalzonTommyHilfRM.jpeg', '{"brand":"Tommy Hilfiger","legacy_code":"RCK001","subcategory":"Interior","initial_quantity":1,"source_photo":"CalzonTommyHilfRM.jpeg","legacy_store_price":1000,"legacy_total":0,"note_2":"820"}', null),
+    ('61', 'Calzon Fine too Verde M', null, (select id
+        from public.categories
+        where name = 'Ropa'), 0.00, 0.00, 'NIO', 'active', 'CalzonFineTooVerde.jpeg', '{"brand":"Fine too","legacy_code":"Sin Codigo","subcategory":"Interior","initial_quantity":1,"source_photo":"CalzonFineTooVerde.jpeg","legacy_store_price":120,"legacy_total":0,"note_2":"98"}', null),
+    ('62', 'Calzon Fine too Blanco M', null, (select id
+        from public.categories
+        where name = 'Ropa'), 0.00, 0.00, 'NIO', 'active', 'CalzonFineTooBlanco.jpeg', '{"brand":"Fine too","legacy_code":"Sin Codigo","subcategory":"Interior","initial_quantity":1,"source_photo":"CalzonFineTooBlanco.jpeg","legacy_store_price":120,"legacy_total":0,"note_2":"98"}', null),
+    ('63', 'Calzon Fine too Negro M', null, (select id
+        from public.categories
+        where name = 'Ropa'), 0.00, 0.00, 'NIO', 'active', 'CalzonFineTooNegro.jpeg', '{"brand":"Fine too","legacy_code":"Sin Codigo","subcategory":"Interior","initial_quantity":1,"source_photo":"CalzonFineTooNegro.jpeg","legacy_store_price":120,"legacy_total":0,"note_2":"98"}', null)
+on conflict
+(sku) do
+update set
+  name = excluded.name,
+  description = excluded.description,
+  category_id = excluded.category_id,
+  cost_price = excluded.cost_price,
+  sell_price = excluded.sell_price,
+  currency = excluded.currency,
+  status = excluded.status,
+  image_path = excluded.image_path,
+  meta = excluded.meta,
+  updated_at = now();

@@ -108,6 +108,23 @@ function buildCartKey(type: "product" | "combo", id: string) {
 	return `${type}-${id}`;
 }
 
+function formatPaymentMethod(method: PaymentMethod) {
+	const labels: Record<PaymentMethod, string> = {
+		cash: "Efectivo",
+		card: "Tarjeta",
+		transfer: "Transferencia",
+	};
+
+	return labels[method] ?? method;
+}
+
+function formatReceiptDate(isoDate: string) {
+	return new Intl.DateTimeFormat("es-NI", {
+		dateStyle: "medium",
+		timeStyle: "short",
+	}).format(new Date(isoDate));
+}
+
 export function PosTerminal({
 	products,
 	combos,
@@ -407,21 +424,137 @@ export function PosTerminal({
 		const printWindow = window.open("", "pos-receipt", "width=720,height=900");
 		if (!printWindow) return;
 
+		const receiptMarkup = receiptRef.current.innerHTML;
+		const printStyles = `
+			* { box-sizing: border-box; }
+			@page { margin: 6mm; }
+			body {
+				margin: 0;
+				padding: 24px;
+				background: #f3f4f6;
+				display: flex;
+				justify-content: center;
+				font-family: "Courier New", Courier, monospace;
+				color: #111827;
+			}
+			.thermal-receipt {
+				width: 70mm;
+				background: #fff;
+				padding: 18px 18px 24px;
+				border: 1px solid #e5e7eb;
+				position: relative;
+				overflow: hidden;
+			}
+			.thermal-receipt::before,
+			.thermal-receipt::after {
+				content: '';
+				position: absolute;
+				left: 0;
+				width: 100%;
+				height: 10px;
+				background: repeating-linear-gradient(90deg, #fff, #fff 7px, transparent 7px, transparent 14px);
+				opacity: 0.45;
+			}
+			.thermal-receipt::before { top: -5px; }
+			.thermal-receipt::after { bottom: -5px; transform: rotate(180deg); }
+			.thermal-receipt__header {
+				text-align: center;
+				text-transform: uppercase;
+				letter-spacing: 0.08em;
+				font-weight: 700;
+			}
+			.thermal-receipt__subtitle {
+				font-size: 11px;
+				letter-spacing: 0.12em;
+				margin-top: 4px;
+				text-transform: uppercase;
+				color: #6b7280;
+			}
+			.thermal-meta {
+				margin-top: 12px;
+				font-size: 12px;
+				color: #374151;
+			}
+			.thermal-meta__line {
+				display: flex;
+				justify-content: space-between;
+				gap: 12px;
+			}
+			.thermal-meta__line + .thermal-meta__line { margin-top: 4px; }
+			.thermal-receipt__divider {
+				margin: 14px 0;
+				border-top: 1px dashed #d1d5db;
+			}
+			.thermal-table {
+				width: 100%;
+				border-collapse: collapse;
+				font-size: 12px;
+			}
+			.thermal-table th {
+				font-size: 11px;
+				text-transform: uppercase;
+				letter-spacing: 0.1em;
+				color: #6b7280;
+				padding-bottom: 6px;
+				border-bottom: 1px dashed #d1d5db;
+			}
+			.thermal-table td {
+				padding: 6px 0;
+				border-bottom: 1px dashed #f3f4f6;
+			}
+			.thermal-table td:nth-child(2) { text-align: center; }
+			.thermal-table td:last-child { text-align: right; }
+			.thermal-summary {
+				margin-top: 12px;
+				font-size: 12px;
+				color: #374151;
+			}
+			.thermal-summary-row {
+				display: flex;
+				justify-content: space-between;
+				padding: 4px 0;
+			}
+			.thermal-summary-row.is-total {
+				font-size: 14px;
+				font-weight: 700;
+				text-transform: uppercase;
+				margin-top: 6px;
+			}
+			.thermal-summary-row.is-accent {
+				font-size: 11px;
+				text-transform: uppercase;
+				color: #6b7280;
+				padding-top: 8px;
+			}
+			.thermal-notes {
+				margin-top: 12px;
+				font-size: 11px;
+				color: #4b5563;
+			}
+			.thermal-footer {
+				margin-top: 16px;
+				text-align: center;
+				font-size: 11px;
+				text-transform: uppercase;
+				letter-spacing: 0.12em;
+				color: #6b7280;
+			}
+			.thermal-footer p + p { margin-top: 4px; }
+			@media print {
+				body { background: #fff; padding: 0; }
+				.thermal-receipt { border: none; }
+			}
+		`;
+
 		printWindow.document.write(`<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8" />
 <title>Recibo ${lastReceipt.receiptNumber}</title>
-<style>
-body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
-h1 { font-size: 20px; margin-bottom: 8px; }
-.table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-.table th, .table td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; font-size: 14px; }
-.summary { margin-top: 16px; font-size: 14px; }
-</style>
+<style>${printStyles}</style>
 </head>
 <body>
-${receiptRef.current.innerHTML}
+${receiptMarkup}
 </body>
 </html>`);
 		printWindow.document.close();
@@ -831,78 +964,116 @@ ${receiptRef.current.innerHTML}
 								Imprimir recibo
 							</button>
 						</header>
-						<div ref={receiptRef} className='mt-4 text-sm text-gray-700'>
-							<h3 className='text-base font-semibold text-gray-900'>
-								Inventario Girlee
-							</h3>
-							<p className='text-xs text-gray-500'>
-								Recibo #{lastReceipt.receiptNumber}
-							</p>
-							<p className='text-xs text-gray-500'>
-								Fecha:{" "}
-								{new Intl.DateTimeFormat("es-NI", {
-									dateStyle: "medium",
-									timeStyle: "short",
-								}).format(new Date(lastReceipt.createdAt))}
-							</p>
-							{lastReceipt.customerName ? (
-								<p className='mt-2 text-sm text-gray-600'>
-									Cliente: {lastReceipt.customerName}
-								</p>
-							) : null}
-							<table className='mt-3 w-full text-left text-xs'>
-								<thead>
-									<tr className='text-gray-500'>
-										<th className='pb-2'>Artículo</th>
-										<th className='pb-2'>Cant.</th>
-										<th className='pb-2 text-right'>Precio</th>
-									</tr>
-								</thead>
-								<tbody>
-									{lastReceipt.items.map((item, index) => (
-										<tr key={`${item.name}-${index}`}>
-											<td className='py-1'>{item.name}</td>
-											<td className='py-1'>{item.qty}</td>
-											<td className='py-1 text-right'>
-												{formatCurrency(
-													item.unitPrice * item.qty,
-													lastReceipt.currency,
-												)}
-											</td>
+						<div className='mt-4 flex justify-center'>
+							<div ref={receiptRef} className='thermal-receipt'>
+								<div className='thermal-receipt__header'>
+									<p>Inventario Girlee</p>
+									<p className='thermal-receipt__subtitle'>
+										Beauty &amp; Makeup Supply
+									</p>
+								</div>
+								<div className='thermal-meta'>
+									<div className='thermal-meta__line'>
+										<span>Recibo</span>
+										<span>#{lastReceipt.receiptNumber}</span>
+									</div>
+									<div className='thermal-meta__line'>
+										<span>Fecha</span>
+										<span>{formatReceiptDate(lastReceipt.createdAt)}</span>
+									</div>
+									{lastReceipt.customerName ? (
+										<div className='thermal-meta__line'>
+											<span>Cliente</span>
+											<span>{lastReceipt.customerName}</span>
+										</div>
+									) : null}
+									{lastReceipt.customerPhone ? (
+										<div className='thermal-meta__line'>
+											<span>Teléfono</span>
+											<span>{lastReceipt.customerPhone}</span>
+										</div>
+									) : null}
+									<div className='thermal-meta__line'>
+										<span>Pago</span>
+										<span>
+											{formatPaymentMethod(lastReceipt.paymentMethod)}
+										</span>
+									</div>
+								</div>
+								<div className='thermal-receipt__divider' />
+								<table className='thermal-table'>
+									<thead>
+										<tr>
+											<th>Artículo</th>
+											<th>Cant.</th>
+											<th>Importe</th>
 										</tr>
-									))}
-								</tbody>
-							</table>
-							<div className='mt-3 space-y-1 text-xs text-gray-600'>
-								<p>
-									Subtotal:{" "}
-									{formatCurrency(lastReceipt.subtotal, lastReceipt.currency)}
-								</p>
-								<p>
-									Descuento:{" "}
-									{formatCurrency(lastReceipt.discount, lastReceipt.currency)}
-								</p>
-								<p>
-									Impuesto:{" "}
-									{formatCurrency(lastReceipt.tax, lastReceipt.currency)}
-								</p>
-								<p className='text-sm font-semibold text-gray-900'>
-									Total:{" "}
-									{formatCurrency(lastReceipt.total, lastReceipt.currency)}
-								</p>
-								<p className='text-xs text-gray-500'>
-									Método: {lastReceipt.paymentMethod}
-								</p>
-								<p className='text-xs text-gray-500'>
-									Ganancia de la venta:{" "}
-									{formatCurrency(lastReceipt.profit, lastReceipt.currency)}
-								</p>
+									</thead>
+									<tbody>
+										{lastReceipt.items.map((item, index) => (
+											<tr key={`${item.name}-${index}`}>
+												<td>{item.name}</td>
+												<td>{item.qty}</td>
+												<td>
+													{formatCurrency(
+														item.unitPrice * item.qty,
+														lastReceipt.currency,
+													)}
+												</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+								<div className='thermal-summary'>
+									<div className='thermal-summary-row'>
+										<span>Subtotal</span>
+										<span>
+											{formatCurrency(
+												lastReceipt.subtotal,
+												lastReceipt.currency,
+											)}
+										</span>
+									</div>
+									<div className='thermal-summary-row'>
+										<span>Descuento</span>
+										<span>
+											{lastReceipt.discount > 0
+												? formatCurrency(
+														-lastReceipt.discount,
+														lastReceipt.currency,
+												  )
+												: formatCurrency(0, lastReceipt.currency)}
+										</span>
+									</div>
+									<div className='thermal-summary-row'>
+										<span>Impuesto</span>
+										<span>
+											{formatCurrency(lastReceipt.tax, lastReceipt.currency)}
+										</span>
+									</div>
+									<div className='thermal-summary-row is-total'>
+										<span>Total</span>
+										<span>
+											{formatCurrency(lastReceipt.total, lastReceipt.currency)}
+										</span>
+									</div>
+									<div className='thermal-summary-row is-accent'>
+										<span>Ganancia</span>
+										<span>
+											{formatCurrency(lastReceipt.profit, lastReceipt.currency)}
+										</span>
+									</div>
+								</div>
+								{lastReceipt.notes ? (
+									<div className='thermal-notes'>
+										<strong>Notas:</strong> {lastReceipt.notes}
+									</div>
+								) : null}
+								<div className='thermal-footer'>
+									<p>¡Gracias por su compra!</p>
+									<p>@InventarioGirlee</p>
+								</div>
 							</div>
-							{lastReceipt.notes ? (
-								<p className='mt-2 text-xs text-gray-500'>
-									Notas: {lastReceipt.notes}
-								</p>
-							) : null}
 						</div>
 					</section>
 				) : null}

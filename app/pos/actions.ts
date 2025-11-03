@@ -407,16 +407,19 @@ export async function createSaleAction(
 			.single();
 
 		if (orderError || !order) {
+			console.log(orderError);
 			throw new Error(orderError?.message ?? "No pudimos registrar la venta");
 		}
 
 		createdOrderId = order.id;
 
 		if (productLineRecords.length) {
-			const productRecordsWithOrder = productLineRecords.map((record) => ({
-				...record,
-				order_id: order.id,
-			}));
+			const productRecordsWithOrder = productLineRecords.map(
+				({ line_total: _lineTotal, ...record }) => ({
+					...record,
+					order_id: order.id,
+				}),
+			);
 
 			const { error: itemsError } = await adminClient
 				.from("order_product_items")
@@ -428,10 +431,12 @@ export async function createSaleAction(
 		}
 
 		if (comboLineRecords.length) {
-			const comboRecordsWithOrder = comboLineRecords.map((record) => ({
-				...record,
-				order_id: order.id,
-			}));
+			const comboRecordsWithOrder = comboLineRecords.map(
+				({ line_total: _lineTotal, ...record }) => ({
+					...record,
+					order_id: order.id,
+				}),
+			);
 
 			const { error: comboError } = await adminClient
 				.from("order_combo_items")

@@ -1,0 +1,9 @@
+{
+	"defaultCategory": "Maquillaje",
+	"map": {
+		"Makeup": "Maquillaje",
+		"Perfume": "Perfumería",
+		"Perfumeria": "Perfumería",
+		"Skin Care": "Cuidado de la Piel"
+	}
+}
