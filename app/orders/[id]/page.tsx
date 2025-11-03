@@ -2,6 +2,11 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
+import OrderReceiptCard, {
+	type OrderReceiptData,
+	type OrderReceiptItem,
+} from "@/app/orders/_components/order-receipt";
+
 import DashboardShell from "@/components/dashboard-shell";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
@@ -102,6 +107,19 @@ export default async function OrderDetailPage({ params }: OrderDetailProps) {
 	const comboItems = order.order_combo_items ?? [];
 	const normalizedNotes = normalizeText(order.notes);
 
+	const receiptItems: OrderReceiptItem[] = [
+		...productItems.map((item) => ({
+			name: normalizeText(item.products?.name) ?? "Producto",
+			qty: Math.max(0, parseNumber(item.qty)),
+			unitPrice: parseNumber(item.unit_price),
+		})),
+		...comboItems.map((item) => ({
+			name: `${normalizeText(item.combos?.name) ?? "Combo"} (Combo)`,
+			qty: Math.max(0, parseNumber(item.qty)),
+			unitPrice: parseNumber(item.unit_price),
+		})),
+	].filter((item) => Number.isFinite(item.unitPrice) && item.qty > 0);
+
 	const subtotal = parseNumber(order.subtotal_amount);
 	const discount = parseNumber(order.discount_amount);
 	const tax = parseNumber(order.tax_amount);
@@ -111,6 +129,25 @@ export default async function OrderDetailPage({ params }: OrderDetailProps) {
 		order.profit_amount !== null
 			? parseNumber(order.profit_amount)
 			: total - totalCost;
+
+	const paymentMethod =
+		normalizeText(order.payment_method)?.toLowerCase() ?? "cash";
+
+	const receiptData: OrderReceiptData = {
+		receiptNumber: normalizeText(order.receipt_number) ?? undefined,
+		createdAt: order.created_at,
+		paymentMethod,
+		customerName: normalizeText(order.customer_name) ?? undefined,
+		customerPhone: normalizeText(order.customer_phone) ?? undefined,
+		notes: normalizedNotes ?? undefined,
+		subtotal,
+		discount,
+		tax,
+		total,
+		profit,
+		currency,
+		items: receiptItems,
+	};
 
 	return (
 		<DashboardShell
@@ -126,6 +163,7 @@ export default async function OrderDetailPage({ params }: OrderDetailProps) {
 				</Link>
 			}>
 			<div className='grid gap-6'>
+				<OrderReceiptCard receipt={receiptData} />
 				<section className='rounded-lg border border-gray-200 bg-white p-6 shadow-sm'>
 					<h2 className='text-lg font-semibold text-gray-900'>
 						Resumen financiero

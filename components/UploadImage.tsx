@@ -24,10 +24,12 @@ export function UploadImage({
 	defaultPreview = null,
 	onFileChange,
 }: UploadImageProps) {
-	const [previewUrl, setPreviewUrl] = useState<string | null>(defaultPreview);
+	const [previewUrl, setPreviewUrl] = useState<string | null>(() =>
+		resolvePreviewUrl(defaultPreview),
+	);
 
 	useEffect(() => {
-		setPreviewUrl(defaultPreview);
+		setPreviewUrl(resolvePreviewUrl(defaultPreview));
 	}, [defaultPreview]);
 
 	useEffect(() => {
@@ -75,7 +77,7 @@ export function UploadImage({
 								const url = URL.createObjectURL(file);
 								setPreviewUrl(url);
 							} else {
-								setPreviewUrl(defaultPreview);
+								setPreviewUrl(resolvePreviewUrl(defaultPreview));
 							}
 							onFileChange?.(file);
 						}}
@@ -86,4 +88,42 @@ export function UploadImage({
 			</div>
 		</div>
 	);
+}
+
+const SUPABASE_BASE_URL =
+	process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "") ?? "";
+const SUPABASE_PUBLIC_PREFIX = "/storage/v1/object/public/";
+
+function resolvePreviewUrl(value: string | null | undefined) {
+	if (!value) return null;
+
+	const trimmed = value.trim();
+	if (!trimmed) {
+		return null;
+	}
+
+	if (/^(blob:|data:|https?:\/\/)/i.test(trimmed)) {
+		return trimmed;
+	}
+
+	if (SUPABASE_BASE_URL) {
+		if (trimmed.startsWith(SUPABASE_PUBLIC_PREFIX)) {
+			return `${SUPABASE_BASE_URL}${trimmed}`;
+		}
+
+		if (trimmed.startsWith(SUPABASE_PUBLIC_PREFIX.slice(1))) {
+			return `${SUPABASE_BASE_URL}/${trimmed}`;
+		}
+
+		return `${SUPABASE_BASE_URL}${SUPABASE_PUBLIC_PREFIX}${trimmed.replace(
+			/^\/+/,
+			"",
+		)}`;
+	}
+
+	if (trimmed.startsWith("/")) {
+		return trimmed;
+	}
+
+	return null;
 }
