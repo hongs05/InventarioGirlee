@@ -9,6 +9,7 @@ const DEFAULT_CURRENCY = "NIO";
 type ProductRow = {
 	id: string;
 	name: string;
+	sku: string | null;
 	sell_price: number | null;
 	cost_price: number | null;
 	quantity: number | null;
@@ -62,7 +63,7 @@ export default async function PosPage() {
 		supabase
 			.from("products")
 			.select(
-				"id, name, sell_price, cost_price, quantity, currency, status, image_path",
+				"id, name, sku, sell_price, cost_price, quantity, currency, status, image_path",
 			)
 			.order("name", { ascending: true }),
 		supabase
@@ -93,6 +94,7 @@ export default async function PosPage() {
 			return {
 				id: product.id,
 				name: product.name,
+				sku: product.sku,
 				price,
 				cost,
 				quantity: product.quantity,

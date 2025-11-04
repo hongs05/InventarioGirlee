@@ -10,6 +10,7 @@ type PaymentMethod = "cash" | "card" | "transfer";
 type PosProduct = {
 	id: string;
 	name: string;
+	sku: string | null;
 	price: number;
 	cost: number;
 	quantity: number | null;
@@ -159,17 +160,24 @@ export function PosTerminal({
 		section.scrollIntoView({ behavior: "smooth", block: "start" });
 	}, []);
 
+	const normalizedSearch = search.trim().toLowerCase();
+	const hasSearchTerm = normalizedSearch.length > 0;
+
 	const filteredProducts = useMemo(() => {
-		const term = search.trim().toLowerCase();
+		if (!hasSearchTerm) return [];
 
 		const matching = products.filter((product) => {
-			const matchesSearch = term
-				? product.name.toLowerCase().includes(term)
-				: true;
+			const matchByName = product.name.toLowerCase().includes(normalizedSearch);
+			const matchBySku = product.sku
+				? product.sku.toLowerCase().includes(normalizedSearch)
+				: false;
+			const matchesSearch = matchByName || matchBySku;
+			if (!matchesSearch) return false;
+
 			const hasInventory = !showOnlyAvailable
 				? true
 				: product.quantity === null || (product.quantity ?? 0) > 0;
-			return matchesSearch && hasInventory;
+			return hasInventory;
 		});
 
 		const sorted = [...matching];
@@ -185,7 +193,15 @@ export function PosTerminal({
 		}
 
 		return sorted;
-	}, [productSort, products, search, showOnlyAvailable]);
+	}, [hasSearchTerm, normalizedSearch, productSort, products, showOnlyAvailable]);
+
+	const filteredCombos = useMemo(() => {
+		if (!hasSearchTerm) return [];
+
+		return combos.filter((combo) =>
+			combo.name.toLowerCase().includes(normalizedSearch),
+		);
+	}, [combos, hasSearchTerm, normalizedSearch]);
 
 	const subtotal = useMemo(
 		() =>
@@ -641,7 +657,7 @@ ${receiptMarkup}
 								</p>
 							</div>
 							<div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end'>
-								<div className='relative w-full sm:max-w-xs'>
+								<div className='relative w-full sm:max-w-md'>
 									<input
 										type='search'
 										value={search}
@@ -696,7 +712,7 @@ ${receiptMarkup}
 						) : null}
 					</div>
 
-					{filteredProducts.length ? (
+					{hasSearchTerm && filteredProducts.length ? (
 						<div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
 							{filteredProducts.map((product) => {
 								const managedInventory = product.quantity !== null;
