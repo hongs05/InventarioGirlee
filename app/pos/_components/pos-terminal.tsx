@@ -668,9 +668,9 @@ ${receiptMarkup}
 										type='search'
 										value={search}
 										onChange={(event) => setSearch(event.target.value)}
-										placeholder='Buscar producto…'
+										placeholder='Buscar por nombre o SKU…'
 										className='w-full rounded-md border border-gray-300 px-3 py-2 pr-10 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
-										aria-label='Buscar en catálogo'
+										aria-label='Buscar productos por nombre o SKU'
 									/>
 									{search ? (
 										<button
@@ -698,7 +698,8 @@ ${receiptMarkup}
 										onChange={(event) =>
 											setProductSort(event.target.value as ProductSortOption)
 										}
-										className='rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'>
+										className='rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300 disabled:cursor-not-allowed disabled:bg-gray-50'
+										disabled={!hasSearchTerm}>
 										<option value='nameAZ'>Ordenar A-Z</option>
 										<option value='priceLowHigh'>Precio: menor a mayor</option>
 										<option value='priceHighLow'>Precio: mayor a menor</option>
@@ -709,16 +710,32 @@ ${receiptMarkup}
 					</header>
 
 					<div className='flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500'>
-						<p className='font-medium text-gray-600'>
-							{filteredProducts.length} producto
-							{filteredProducts.length === 1 ? "" : "s"} listados
-						</p>
+						{hasSearchTerm ? (
+							<p className='font-medium text-gray-600'>
+								{filteredProducts.length} producto
+								{filteredProducts.length === 1 ? "" : "s"} encontrados
+							</p>
+						) : (
+							<p className='text-gray-500'>
+								Escribe un nombre o SKU para buscar dentro del catálogo.
+							</p>
+						)}
 						{showOnlyAvailable ? (
 							<p>Mostrando solo artículos con existencias disponibles.</p>
 						) : null}
 					</div>
 
-					{hasSearchTerm && filteredProducts.length ? (
+					{!hasSearchTerm ? (
+						<div className='rounded-lg border border-dashed border-gray-300 bg-white px-6 py-10 text-center shadow-sm'>
+							<h3 className='text-base font-semibold text-gray-900'>
+								Busca productos por nombre o SKU
+							</h3>
+							<p className='mt-2 text-sm text-gray-500'>
+								Ingresa un término para encontrar artículos específicos sin
+								mostrar todo el catálogo.
+							</p>
+						</div>
+					) : filteredProducts.length ? (
 						<div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
 							{filteredProducts.map((product) => {
 								const managedInventory = product.quantity !== null;
@@ -765,6 +782,11 @@ ${receiptMarkup}
 													Ganancia esperada:{" "}
 													{formatCurrency(profit, product.currency)}
 												</p>
+												{product.sku ? (
+													<p className='text-xs uppercase tracking-wide text-gray-400'>
+														SKU: {product.sku}
+													</p>
+												) : null}
 											</div>
 										</div>
 										<button
@@ -799,20 +821,20 @@ ${receiptMarkup}
 						</div>
 					)}
 
-					{combos.length ? (
+					{hasSearchTerm && filteredCombos.length ? (
 						<div className='space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm'>
 							<header className='flex items-center justify-between'>
 								<div>
 									<h3 className='text-lg font-semibold text-gray-900'>
-										Combos
+										Combos encontrados
 									</h3>
 									<p className='text-sm text-gray-500'>
-										Multiplica tus ventas con paquetes listos.
+										Resultados que coinciden con la búsqueda.
 									</p>
 								</div>
 							</header>
 							<div className='grid gap-4 md:grid-cols-2'>
-								{combos.map((combo) => (
+								{filteredCombos.map((combo) => (
 									<article
 										key={combo.id}
 										className='flex flex-col justify-between rounded-lg border border-dashed border-gray-300 bg-blush-50 p-4'>
