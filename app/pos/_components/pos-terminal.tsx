@@ -193,7 +193,13 @@ export function PosTerminal({
 		}
 
 		return sorted;
-	}, [hasSearchTerm, normalizedSearch, productSort, products, showOnlyAvailable]);
+	}, [
+		hasSearchTerm,
+		normalizedSearch,
+		productSort,
+		products,
+		showOnlyAvailable,
+	]);
 
 	const filteredCombos = useMemo(() => {
 		if (!hasSearchTerm) return [];
