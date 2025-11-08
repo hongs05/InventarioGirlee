@@ -56,6 +56,7 @@ export default async function DashboardPage() {
 	}
 
 	let productCount = 0;
+	let activeProductCount = 0;
 	let comboCount = 0;
 	let categoryCount = 0;
 	let ordersLast30 = 0;
@@ -63,6 +64,7 @@ export default async function DashboardPage() {
 	let profitLast30 = 0;
 	let inventoryUnits = 0;
 	let inventoryValue = 0;
+	let zeroStockCount = 0;
 	let lowStockItems: LowStockRow[] = [];
 	let salesTrendPoints: SalesTrendPoint[] = [];
 	let recentProductItems: ActivityRow[] = [];
@@ -82,6 +84,7 @@ export default async function DashboardPage() {
 	if (!error && overviewData?.length) {
 		const overview = overviewData[0] as Record<string, unknown>;
 		productCount = Math.round(safeNumber(overview.product_count));
+		activeProductCount = Math.round(safeNumber(overview.active_product_count));
 		comboCount = Math.round(safeNumber(overview.combo_count));
 		categoryCount = Math.round(safeNumber(overview.category_count));
 		ordersLast30 = Math.round(safeNumber(overview.orders_last_30));
@@ -89,6 +92,7 @@ export default async function DashboardPage() {
 		profitLast30 = safeNumber(overview.profit_last_30);
 		inventoryUnits = safeNumber(overview.inventory_units);
 		inventoryValue = safeNumber(overview.inventory_value);
+		zeroStockCount = Math.round(safeNumber(overview.zero_stock_count));
 		lowStockItems = ensureArray<Record<string, unknown>>(
 			overview.low_stock_products,
 		)
@@ -115,6 +119,16 @@ export default async function DashboardPage() {
 		recentComboItems = ensureArray<ActivityRow>(
 			overview.recent_combos as ActivityRow[],
 		);
+
+		if (productCount > 0 && activeProductCount === 0) {
+			const { count: activeCountFallback } = await supabase
+				.from("products")
+				.select("id", { count: "exact", head: true })
+				.eq("status", "active");
+			if (typeof activeCountFallback === "number") {
+				activeProductCount = activeCountFallback;
+			}
+		}
 	} else if (missingFunctionError) {
 		const now = new Date();
 		const thirtyDaysAgoISO = new Date(
@@ -190,6 +204,18 @@ export default async function DashboardPage() {
 			const qty = Math.max(0, safeNumber(product.quantity));
 			return sum + qty * safeNumber(product.cost_price);
 		}, 0);
+		activeProductCount = inventoryRows.reduce((count, product) => {
+			const status = String(product.status ?? "active");
+			return status === "active" ? count + 1 : count;
+		}, 0);
+		zeroStockCount = inventoryRows.reduce((count, product) => {
+			const status = String(product.status ?? "active");
+			const qty = safeNumber(product.quantity);
+			if (status === "active" && qty <= 0) {
+				return count + 1;
+			}
+			return count;
+		}, 0);
 		lowStockItems = inventoryRows
 			.filter((product) => {
 				const status = String(product.status ?? "active");
@@ -242,7 +268,32 @@ export default async function DashboardPage() {
 			currentPath='/dashboard'
 			title='Panel general'
 			description='Monitoriza tu inventario, combos y categorías de un vistazo.'>
-			<section className='grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
+			<section className='grid gap-4 md:grid-cols-3'>
+				<StatCard
+					title='Productos activos'
+					value={activeProductCount}
+					variant='number'
+					helperText='Disponibles actualmente para la venta.'
+					footnote={`Catálogo total: ${numberFormatter.format(productCount)}`}
+				/>
+				<StatCard
+					title='Valor del inventario'
+					value={inventoryValue}
+					variant='currency'
+					helperText='Basado en el costo de productos activos.'
+					footnote={`${numberFormatter.format(
+						Math.round(inventoryUnits),
+					)} unidades en almacén`}
+				/>
+				<StatCard
+					title='Productos sin stock'
+					value={zeroStockCount}
+					variant='number'
+					helperText='Productos activos con inventario en cero.'
+				/>
+			</section>
+
+			<section className='mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4'>
 				<StatCard
 					title='Ventas últimos 30 días'
 					value={revenueLast30}
@@ -265,15 +316,6 @@ export default async function DashboardPage() {
 					variant='number'
 					helperText='Pedidos cerrados durante los últimos 30 días.'
 				/>
-				<StatCard
-					title='Valor de inventario'
-					value={inventoryValue}
-					variant='currency'
-					helperText='Basado en costo promedio con existencias activas.'
-					footnote={`${numberFormatter.format(
-						Math.round(inventoryUnits),
-					)} unidades disponibles`}
-				/>
 			</section>
 
 			<section className='grid gap-6 xl:grid-cols-[2fr,1fr]'>
@@ -288,9 +330,11 @@ export default async function DashboardPage() {
 				/>
 				<InventorySnapshotCard
 					productCount={productCount}
+					activeProductCount={activeProductCount}
 					comboCount={comboCount}
 					categoryCount={categoryCount}
 					inventoryUnits={inventoryUnits}
+					zeroStockCount={zeroStockCount}
 					lowStockCount={lowStockItems.length}
 				/>
 			</section>
@@ -483,15 +527,19 @@ function SalesTrendCard({
 
 function InventorySnapshotCard({
 	productCount,
+	activeProductCount,
 	comboCount,
 	categoryCount,
 	inventoryUnits,
+	zeroStockCount,
 	lowStockCount,
 }: {
 	productCount: number;
+	activeProductCount: number;
 	comboCount: number;
 	categoryCount: number;
 	inventoryUnits: number;
+	zeroStockCount: number;
 	lowStockCount: number;
 }) {
 	return (
@@ -507,6 +555,18 @@ function InventorySnapshotCard({
 			<ul className='mt-6 space-y-3 text-sm text-gray-700'>
 				<li className='flex items-center justify-between'>
 					<span>Productos activos</span>
+					<span className='font-semibold text-gray-900'>
+						{numberFormatter.format(activeProductCount)}
+					</span>
+				</li>
+				<li className='flex items-center justify-between'>
+					<span>Productos sin stock</span>
+					<span className='font-semibold text-gray-900'>
+						{numberFormatter.format(zeroStockCount)}
+					</span>
+				</li>
+				<li className='flex items-center justify-between'>
+					<span>Catálogo total</span>
 					<span className='font-semibold text-gray-900'>
 						{numberFormatter.format(productCount)}
 					</span>

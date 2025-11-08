@@ -1,6 +1,7 @@
 create or replace function public.dashboard_overview()
 returns table (
     product_count bigint,
+    active_product_count bigint,
     combo_count bigint,
     category_count bigint,
     orders_last_30 bigint,
@@ -8,6 +9,7 @@ returns table (
     profit_last_30 numeric,
     inventory_units numeric,
     inventory_value numeric,
+    zero_stock_count bigint,
     low_stock_products jsonb,
     sales_last_7 jsonb,
     recent_products jsonb,
@@ -56,6 +58,11 @@ begin
         )
     select
         (select count(*) from public.products) as product_count,
+        (
+            select count(*)
+            from public.products
+            where coalesce(status, 'active') = 'active'
+        ) as active_product_count,
         (select count(*) from public.combos) as combo_count,
         (select count(*) from public.categories) as category_count,
         (select count(*) from recent_orders) as orders_last_30,
@@ -71,6 +78,12 @@ begin
             from public.products
             where coalesce(status, 'active') <> 'archived'
         ) as inventory_value,
+        (
+            select count(*)
+            from public.products
+            where coalesce(status, 'active') = 'active'
+              and coalesce(quantity, 0) <= 0
+        ) as zero_stock_count,
         (
             select coalesce(jsonb_agg(row_to_json(ls)), '[]'::jsonb)
             from (

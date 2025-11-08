@@ -125,7 +125,14 @@ export async function createProductAction(
 			payload.newCategoryName,
 		);
 		const quantityValue = payload.quantity ?? 0;
-		const resolvedStatus = quantityValue <= 0 ? "archived" : payload.status;
+		let resolvedStatus: string;
+		if (quantityValue <= 0) {
+			resolvedStatus = "archived";
+		} else if (payload.status === "archived") {
+			resolvedStatus = "active";
+		} else {
+			resolvedStatus = payload.status ?? "active";
+		}
 
 		let imageUrl: string | null = null;
 		if (payload.imageFile instanceof File) {
@@ -246,7 +253,14 @@ export async function updateProductAction(formData: FormData): Promise<
 			payload.newCategoryName,
 		);
 		const quantityValue = payload.quantity ?? 0;
-		const resolvedStatus = quantityValue <= 0 ? "archived" : payload.status;
+		let resolvedStatus: string;
+		if (quantityValue <= 0) {
+			resolvedStatus = "archived";
+		} else if (payload.status === "archived") {
+			resolvedStatus = "active";
+		} else {
+			resolvedStatus = payload.status ?? "active";
+		}
 
 		let imageUrl = existing.image_path ?? null;
 		if (payload.imageFile instanceof File) {
@@ -331,6 +345,7 @@ export async function archiveProductAction(
 		}
 
 		revalidatePath("/inventory");
+		revalidatePath("/dashboard");
 
 		return {
 			success: true,
@@ -353,6 +368,52 @@ export async function archiveProductAction(
 		return {
 			success: false,
 			errors: { form: ["No pudimos archivar el producto."] },
+		};
+	}
+}
+
+export async function activateProductAction(
+	productId: string,
+): Promise<ActionResult<{ id: string }>> {
+	if (!productId) {
+		return { success: false, errors: { form: ["ID de producto inválido"] } };
+	}
+
+	try {
+		const adminClient = createSupabaseAdminClient();
+		const { error } = await adminClient
+			.from("products")
+			.update({ status: "active" })
+			.eq("id", productId);
+
+		if (error) {
+			throw new Error(error.message);
+		}
+
+		revalidatePath("/inventory");
+		revalidatePath("/dashboard");
+
+		return {
+			success: true,
+			data: { id: productId },
+			message: "Producto activado correctamente",
+		};
+	} catch (error) {
+		if (error instanceof MissingEnvironmentVariableError) {
+			return {
+				success: false,
+				errors: {
+					form: [
+						`Falta configurar la variable de entorno ${error.envVar}. Revisa la guía de instalación para obtener el valor correcto.`,
+					],
+				},
+			};
+		}
+
+		console.error("[activateProductAction]", error);
+		return {
+			success: false,
+			errors: { form: ["No pudimos activar el producto."] },
 		};
 	}
 }
