@@ -1,10 +1,10 @@
-import Link from "next/link";
 import Image from "next/image";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import DashboardShell from "@/components/dashboard-shell";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { recommendPrice } from "@/lib/pricing";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 const COMBO_STATUSES = [
 	{ value: "", label: "Todos" },

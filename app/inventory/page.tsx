@@ -1,11 +1,13 @@
-import Link from "next/link";
 import Image from "next/image";
-import { Suspense } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 
 import DashboardShell from "@/components/dashboard-shell";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { recommendPrice } from "@/lib/pricing";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+
+import { DeleteProductButton } from "./_components/delete-product-button";
 import { archiveProductAction } from "./actions";
 
 const PRODUCT_STATUSES = [
@@ -14,6 +16,8 @@ const PRODUCT_STATUSES = [
 	{ value: "draft", label: "Borradores" },
 	{ value: "archived", label: "Archivados" },
 ];
+
+const LOW_STOCK_THRESHOLD = 5;
 
 type SearchParams = {
 	q?: string;
@@ -47,6 +51,20 @@ export default async function InventoryPage({
 	searchParams: Promise<SearchParams>;
 }) {
 	const resolvedSearchParams = await searchParams;
+	const allowedStatuses = new Set(
+		PRODUCT_STATUSES.map((status) => status.value),
+	);
+	const rawStatus = resolvedSearchParams?.status;
+	const appliedStatus =
+		rawStatus === undefined
+			? "active"
+			: allowedStatuses.has(rawStatus)
+			? rawStatus
+			: "active";
+	const appliedCategory =
+		resolvedSearchParams?.category === undefined
+			? ""
+			: resolvedSearchParams.category;
 	const supabase = await createSupabaseServerClient();
 	const {
 		data: { user },
@@ -68,15 +86,12 @@ export default async function InventoryPage({
 		)
 		.order("created_at", { ascending: false });
 
-	if (resolvedSearchParams?.status) {
-		productsQuery = productsQuery.eq("status", resolvedSearchParams.status);
+	if (appliedStatus) {
+		productsQuery = productsQuery.eq("status", appliedStatus);
 	}
 
-	if (resolvedSearchParams?.category) {
-		productsQuery = productsQuery.eq(
-			"category_id",
-			Number(resolvedSearchParams.category),
-		);
+	if (appliedCategory) {
+		productsQuery = productsQuery.eq("category_id", Number(appliedCategory));
 	}
 
 	if (resolvedSearchParams?.q) {
@@ -85,6 +100,11 @@ export default async function InventoryPage({
 	}
 
 	const { data: products } = await productsQuery;
+	const normalizedSearchParams: SearchParams = {
+		q: resolvedSearchParams?.q,
+		status: appliedStatus,
+		category: appliedCategory,
+	};
 
 	return (
 		<DashboardShell
@@ -108,7 +128,7 @@ export default async function InventoryPage({
 				<div className='flex flex-col gap-6'>
 					<InventoryFilters
 						categories={categories ?? []}
-						searchParams={resolvedSearchParams}
+						searchParams={normalizedSearchParams}
 					/>
 					<InventoryTable products={products ?? []} />
 				</div>
@@ -124,6 +144,8 @@ async function InventoryFilters({
 	categories: CategoryRow[];
 	searchParams: SearchParams;
 }) {
+	const statusValue = searchParams.status ?? "active";
+	const categoryValue = searchParams.category ?? "";
 	return (
 		<form
 			className='grid gap-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm md:grid-cols-4'
@@ -149,7 +171,7 @@ async function InventoryFilters({
 				<select
 					id='status'
 					name='status'
-					defaultValue={searchParams.status ?? ""}
+					defaultValue={statusValue}
 					className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'>
 					{PRODUCT_STATUSES.map((status) => (
 						<option key={status.value} value={status.value}>
@@ -166,7 +188,7 @@ async function InventoryFilters({
 				<select
 					id='category'
 					name='category'
-					defaultValue={searchParams.category ?? ""}
+					defaultValue={categoryValue}
 					className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'>
 					<option value=''>Todas</option>
 					{categories.map((category) => (
@@ -286,7 +308,7 @@ async function InventoryTable({ products }: { products: ProductRow[] }) {
 										: "Sin datos"}
 								</td>
 								<td className='px-4 py-4 text-sm text-gray-700'>
-									{formatQuantity(product.quantity)}
+									{renderQuantityBadge(product.quantity)}
 								</td>
 								<td className='px-4 py-4 text-sm text-gray-700'>
 									<StatusBadge status={product.status} />
@@ -309,6 +331,10 @@ async function InventoryTable({ products }: { products: ProductRow[] }) {
 												Archivar
 											</button>
 										</form>
+										<DeleteProductButton
+											productId={product.id}
+											productName={product.name}
+										/>
 									</div>
 								</td>
 							</tr>
@@ -365,6 +391,37 @@ function resolveProductImageSrc(
 	}
 
 	return null;
+}
+
+function renderQuantityBadge(quantity: number | null | undefined) {
+	const numericQuantity = Number.isFinite(quantity ?? NaN)
+		? Number(quantity ?? 0)
+		: 0;
+	const formatted = formatQuantity(numericQuantity);
+	const baseClass =
+		"inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium";
+
+	if (numericQuantity <= 0) {
+		return (
+			<span className={`${baseClass} bg-gray-200 text-gray-600`}>
+				{formatted}
+			</span>
+		);
+	}
+
+	if (numericQuantity <= LOW_STOCK_THRESHOLD) {
+		return (
+			<span className={`${baseClass} bg-amber-100 text-amber-700`}>
+				{formatted}
+			</span>
+		);
+	}
+
+	return (
+		<span className={`${baseClass} bg-emerald-100 text-emerald-700`}>
+			{formatted}
+		</span>
+	);
 }
 
 function formatCurrency(value: number, currency = "NIO") {

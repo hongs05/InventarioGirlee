@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+
 import type { PriceRecommendation } from "@/lib/pricing";
 
 type PriceTiersProps = {

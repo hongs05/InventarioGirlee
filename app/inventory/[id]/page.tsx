@@ -3,8 +3,8 @@ import { notFound, redirect } from "next/navigation";
 
 import { ProductForm } from "@/app/inventory/_components/product-form";
 import { updateProductAction } from "@/app/inventory/actions";
-import type { ProductFormValues } from "@/lib/schemas";
 import DashboardShell from "@/components/dashboard-shell";
+import type { ProductFormValues } from "@/lib/schemas";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 export default async function EditProductPage({
@@ -30,7 +30,7 @@ export default async function EditProductPage({
 		supabase
 			.from("products")
 			.select(
-				"id, name, sku, description, status, cost_price, sell_price, currency, category_id, image_path, quantity",
+				"id, name, sku, description, status, cost_price, sell_price, currency, category_id, image_path, quantity, meta",
 			)
 			.eq("id", id)
 			.maybeSingle(),
@@ -39,6 +39,17 @@ export default async function EditProductPage({
 	if (!product) {
 		notFound();
 	}
+
+	const productMeta =
+		product.meta &&
+		typeof product.meta === "object" &&
+		!Array.isArray(product.meta)
+			? (product.meta as Record<string, unknown>)
+			: null;
+	const defaultBrand =
+		productMeta && typeof productMeta.brand === "string"
+			? (productMeta.brand as string)
+			: undefined;
 
 	async function handleUpdate(formData: FormData) {
 		"use server";
@@ -67,6 +78,7 @@ export default async function EditProductPage({
 					heading={product.name}
 					defaultValues={{
 						name: product.name,
+						brand: defaultBrand,
 						sku: product.sku ?? undefined,
 						description: product.description ?? undefined,
 						categoryId: product.category_id

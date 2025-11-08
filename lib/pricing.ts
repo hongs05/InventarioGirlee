@@ -13,15 +13,56 @@ const MAX_SEARCH_DISTANCE = 500; // search window for pretty pricing adjustments
 
 type MarginKey = keyof typeof DEFAULT_MARGINS;
 
+export type PriceRuleTarget = "product" | "combo";
+export type PriceRuleScope =
+	| "global"
+	| "category"
+	| "brand"
+	| "product"
+	| "promo"
+	| "combo";
+
+export type InventoryAgeCondition = {
+	minDays?: number | null;
+	maxDays?: number | null;
+	strategy?: "any" | "all";
+};
+
+export type CostChangeDirection = "increase" | "decrease" | "any";
+
+export type CostChangeCondition = {
+	direction?: CostChangeDirection | null;
+	thresholdPct?: number | null;
+};
+
+export type PromoCondition = {
+	tag?: string | null;
+};
+
+export interface PriceRuleConditions {
+	inventoryAge?: InventoryAgeCondition | null;
+	costChange?: CostChangeCondition | null;
+	promo?: PromoCondition | null;
+}
+
 export interface PriceRule {
 	id?: number;
-	scope?: "global" | "category" | "brand" | "product";
+	name?: string | null;
+	description?: string | null;
+	target?: PriceRuleTarget | null;
+	scope?: PriceRuleScope | null;
 	scope_ref?: string | null;
 	margin_low?: number | null;
 	margin_mid?: number | null;
 	margin_high?: number | null;
 	margin_premium?: number | null;
 	endings?: string[] | null;
+	active?: boolean | null;
+	priority?: number | null;
+	price_adjustment_pct?: number | null;
+	conditions?: PriceRuleConditions | Record<string, unknown> | null;
+	starts_at?: string | null;
+	ends_at?: string | null;
 }
 
 export interface PriceRecommendationInput {
@@ -96,11 +137,14 @@ export function recommendPrice({
 		rule?.endings ?? Array.from(DEFAULT_ENDINGS),
 	);
 	const margins = resolveMargins(rule);
+	const priceAdjustmentPct = resolvePriceAdjustment(rule);
+	const adjustPrice = (value: number) =>
+		applyPriceAdjustment(value, priceAdjustmentPct, endings);
 
-	const m40 = applyMargin(costPrice, margins.low, endings);
-	const m50 = applyMargin(costPrice, margins.mid, endings);
-	const m60 = applyMargin(costPrice, margins.high, endings);
-	const m70 = applyMargin(costPrice, margins.premium, endings);
+	const m40 = adjustPrice(applyMargin(costPrice, margins.low, endings));
+	const m50 = adjustPrice(applyMargin(costPrice, margins.mid, endings));
+	const m60 = adjustPrice(applyMargin(costPrice, margins.high, endings));
+	const m70 = adjustPrice(applyMargin(costPrice, margins.premium, endings));
 
 	const appliedTier = pickSuggestedTier(costPrice, categoryName, brand);
 	const appliedMargin = margins[appliedTier];
@@ -131,6 +175,16 @@ function resolveMargins(rule: PriceRule | null | undefined) {
 		high: pickMargin(rule?.margin_high, DEFAULT_MARGINS.high),
 		premium: pickMargin(rule?.margin_premium, DEFAULT_MARGINS.premium),
 	} as Record<MarginKey, number>;
+}
+
+function resolvePriceAdjustment(rule: PriceRule | null | undefined): number {
+	const candidate = rule?.price_adjustment_pct;
+	if (candidate === null || candidate === undefined) {
+		return 0;
+	}
+
+	const parsed = Number(candidate);
+	return Number.isFinite(parsed) ? parsed : 0;
 }
 
 function pickMargin(
@@ -179,6 +233,19 @@ function applyMargin(
 ): number {
 	const raw = costPrice * (1 + margin);
 	return prettyPrice(raw, endings);
+}
+
+function applyPriceAdjustment(
+	value: number,
+	priceAdjustmentPct: number,
+	endings: string[],
+): number {
+	if (!priceAdjustmentPct) {
+		return value;
+	}
+
+	const adjusted = value * (1 + priceAdjustmentPct / 100);
+	return prettyPrice(adjusted, endings);
 }
 
 function normalizeEndings(endings: string[]): string[] {

@@ -3,8 +3,8 @@ import { notFound, redirect } from "next/navigation";
 
 import { ComboForm } from "@/app/combos/_components/combo-form";
 import { updateComboAction } from "@/app/combos/actions";
-import type { ComboFormValues } from "@/lib/schemas";
 import DashboardShell from "@/components/dashboard-shell";
+import type { ComboFormValues } from "@/lib/schemas";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 type ComboRow = {

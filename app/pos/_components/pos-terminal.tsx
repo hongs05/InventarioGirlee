@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 
 import type { ActionErrorRecord } from "@/lib/actions";
+
 import { createSaleAction } from "../actions";
 
 type PaymentMethod = "cash" | "card" | "transfer";

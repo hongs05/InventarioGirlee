@@ -1,14 +1,15 @@
 "use server";
 
+import type { PostgrestError } from "@supabase/supabase-js";
 import { z } from "zod";
 
 import type { ActionErrorRecord, ActionResult } from "@/lib/actions";
 import { posOrderSchema } from "@/lib/schemas";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
 import {
 	MissingEnvironmentVariableError,
 	createSupabaseAdminClient,
 } from "@/lib/supabase-admin";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 function flattenErrors(error: z.ZodError): ActionErrorRecord {
 	const { fieldErrors, formErrors } = error.flatten();
@@ -87,6 +88,7 @@ type ProductRow = {
 	name: string | null;
 	cost_price: number | null;
 	quantity: number | null;
+	status: string | null;
 };
 
 type ComboItemRow = {
@@ -121,10 +123,81 @@ type ComboLineRecord = {
 	line_cost_total: number;
 };
 
+type LineItemInsertRecord = Record<string, unknown> & {
+	line_total?: number;
+	line_cost_total?: number;
+};
+
+function isGeneratedColumnError(error: PostgrestError | null): boolean {
+	if (!error?.message) {
+		return false;
+	}
+
+	const message = error.message.toLowerCase();
+	return (
+		message.includes("non-default value") ||
+		message.includes("generated column")
+	);
+}
+
+async function insertLineItemsWithFallback(
+	adminClient: ReturnType<typeof createSupabaseAdminClient>,
+	table: string,
+	records: LineItemInsertRecord[],
+): Promise<void> {
+	if (!records.length) {
+		return;
+	}
+
+	const variants: Array<
+		(record: LineItemInsertRecord) => Record<string, unknown>
+	> = [
+		(record) => ({ ...record }),
+		(record) => {
+			if (!("line_total" in record)) {
+				return { ...record };
+			}
+
+			const { line_total: _ignored, ...rest } = record;
+			return { ...rest };
+		},
+		(record) => {
+			const {
+				line_total: _ignoredLineTotal,
+				line_cost_total: _ignoredLineCostTotal,
+				...rest
+			} = record;
+			return { ...rest };
+		},
+	];
+
+	let lastError: PostgrestError | null = null;
+
+	for (const buildPayload of variants) {
+		const payload = records.map((record) => buildPayload(record));
+		const { error } = await adminClient.from(table).insert(payload);
+
+		if (!error) {
+			return;
+		}
+
+		if (!isGeneratedColumnError(error)) {
+			throw new Error(error.message);
+		}
+
+		lastError = error;
+	}
+
+	if (lastError) {
+		throw new Error(lastError.message);
+	}
+}
+
 type InventoryRequirement = {
 	name: string;
 	required: number;
 	available: number;
+	status: string | null;
 };
 
 type CreateSaleResult = {
@@ -182,7 +255,7 @@ export async function createSaleAction(
 		if (allProductIds.size) {
 			const { data, error } = await adminClient
 				.from("products")
-				.select("id, name, cost_price, quantity")
+				.select("id, name, cost_price, quantity, status")
 				.in("id", Array.from(allProductIds));
 
 			if (error) {
@@ -255,6 +328,7 @@ export async function createSaleAction(
 				name: product.name ?? "Producto",
 				required,
 				available,
+				status: existing?.status ?? product.status ?? null,
 			});
 		}
 
@@ -319,6 +393,7 @@ export async function createSaleAction(
 					name: product.name ?? "Producto",
 					required: (existing?.required ?? 0) + requiredQty,
 					available,
+					status: existing?.status ?? product.status ?? null,
 				});
 			}
 
@@ -414,37 +489,41 @@ export async function createSaleAction(
 		createdOrderId = order.id;
 
 		if (productLineRecords.length) {
-			const productRecordsWithOrder = productLineRecords.map(
-				({ line_total: _lineTotal, ...record }) => ({
-					...record,
+			const productRecordsWithOrder: LineItemInsertRecord[] =
+				productLineRecords.map((record) => ({
 					order_id: order.id,
-				}),
+					product_id: record.product_id,
+					qty: record.qty,
+					unit_price: record.unit_price,
+					unit_cost: record.unit_cost,
+					line_total: record.line_total,
+					line_cost_total: record.line_cost_total,
+				}));
+
+			await insertLineItemsWithFallback(
+				adminClient,
+				"order_product_items",
+				productRecordsWithOrder,
 			);
-
-			const { error: itemsError } = await adminClient
-				.from("order_product_items")
-				.insert(productRecordsWithOrder);
-
-			if (itemsError) {
-				throw new Error(itemsError.message);
-			}
 		}
 
 		if (comboLineRecords.length) {
-			const comboRecordsWithOrder = comboLineRecords.map(
-				({ line_total: _lineTotal, ...record }) => ({
-					...record,
+			const comboRecordsWithOrder: LineItemInsertRecord[] =
+				comboLineRecords.map((record) => ({
 					order_id: order.id,
-				}),
+					combo_id: record.combo_id,
+					qty: record.qty,
+					unit_price: record.unit_price,
+					unit_cost: record.unit_cost,
+					line_total: record.line_total,
+					line_cost_total: record.line_cost_total,
+				}));
+
+			await insertLineItemsWithFallback(
+				adminClient,
+				"order_combo_items",
+				comboRecordsWithOrder,
 			);
-
-			const { error: comboError } = await adminClient
-				.from("order_combo_items")
-				.insert(comboRecordsWithOrder);
-
-			if (comboError) {
-				throw new Error(comboError.message);
-			}
 		}
 
 		const inventoryUpdates = Array.from(requirements.entries()).map(
@@ -452,22 +531,39 @@ export async function createSaleAction(
 				productId,
 				newQuantity: Math.max(requirement.available - requirement.required, 0),
 				previousQuantity: requirement.available,
+				previousStatus: requirement.status ?? null,
 			}),
 		);
 
 		for (let index = 0; index < inventoryUpdates.length; index += 1) {
 			const update = inventoryUpdates[index];
+			const updatePayload: Record<string, unknown> = {
+				quantity: update.newQuantity,
+			};
+
+			if (update.newQuantity <= 0) {
+				updatePayload.status = "archived";
+			}
+
 			const { error: updateError } = await adminClient
 				.from("products")
-				.update({ quantity: update.newQuantity })
+				.update(updatePayload)
 				.eq("id", update.productId);
 
 			if (updateError) {
 				for (let revertIndex = 0; revertIndex < index; revertIndex += 1) {
 					const revert = inventoryUpdates[revertIndex];
+					const revertPayload: Record<string, unknown> = {
+						quantity: revert.previousQuantity,
+					};
+
+					if (typeof revert.previousStatus === "string") {
+						revertPayload.status = revert.previousStatus;
+					}
+
 					await adminClient
 						.from("products")
-						.update({ quantity: revert.previousQuantity })
+						.update(revertPayload)
 						.eq("id", revert.productId);
 				}
 

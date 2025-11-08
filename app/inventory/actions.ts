@@ -1,15 +1,16 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { productFormSchema } from "@/lib/schemas";
 import { ActionErrorRecord, ActionResult } from "@/lib/actions";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { productFormSchema } from "@/lib/schemas";
+import { deleteImageFromBucket, uploadImageToBucket } from "@/lib/storage";
 import {
 	createSupabaseAdminClient,
 	MissingEnvironmentVariableError,
 } from "@/lib/supabase-admin";
-import { deleteImageFromBucket, uploadImageToBucket } from "@/lib/storage";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 function flattenErrors(error: z.ZodError): ActionErrorRecord {
 	const { fieldErrors, formErrors } = error.flatten();
@@ -26,6 +27,7 @@ function parseProductForm(formData: FormData) {
 
 	const parsed = productFormSchema.safeParse({
 		name: formData.get("name"),
+		brand: formData.get("brand"),
 		sku: formData.get("sku"),
 		description: formData.get("description"),
 		categoryId: formData.get("categoryId"),
@@ -52,6 +54,25 @@ type CreateProductPayload = {
 	id: string;
 	imageUrl?: string | null;
 };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function buildProductMeta(
+	existingMeta: unknown,
+	brand: ReturnType<typeof parseProductForm>["brand"],
+) {
+	const base = isRecord(existingMeta) ? { ...existingMeta } : {};
+
+	if (brand) {
+		base.brand = brand;
+	} else if ("brand" in base) {
+		delete base.brand;
+	}
+
+	return base;
+}
 
 async function ensureCategoryId(
 	adminClient: ReturnType<typeof createSupabaseAdminClient>,
@@ -103,6 +124,8 @@ export async function createProductAction(
 			payload.categoryId,
 			payload.newCategoryName,
 		);
+		const quantityValue = payload.quantity ?? 0;
+		const resolvedStatus = quantityValue <= 0 ? "archived" : payload.status;
 
 		let imageUrl: string | null = null;
 		if (payload.imageFile instanceof File) {
@@ -115,21 +138,28 @@ export async function createProductAction(
 			imageUrl = upload.publicUrl;
 		}
 
+		const meta = buildProductMeta(null, payload.brand);
+		const insertPayload: Record<string, unknown> = {
+			name: payload.name,
+			sku: payload.sku ?? null,
+			description: payload.description ?? null,
+			category_id: categoryId,
+			cost_price: payload.costPrice,
+			sell_price: payload.sellPrice ?? null,
+			currency: payload.currency ?? "NIO",
+			status: resolvedStatus,
+			image_path: imageUrl,
+			quantity: quantityValue,
+			created_by: authData?.user?.id ?? null,
+		};
+
+		if (Object.keys(meta).length > 0) {
+			insertPayload.meta = meta;
+		}
+
 		const { data, error } = await adminClient
 			.from("products")
-			.insert({
-				name: payload.name,
-				sku: payload.sku ?? null,
-				description: payload.description ?? null,
-				category_id: categoryId,
-				cost_price: payload.costPrice,
-				sell_price: payload.sellPrice ?? null,
-				currency: payload.currency ?? "NIO",
-				status: payload.status,
-				image_path: imageUrl,
-				quantity: payload.quantity ?? 0,
-				created_by: authData?.user?.id ?? null,
-			})
+			.insert(insertPayload)
 			.select("id")
 			.single();
 
@@ -184,7 +214,7 @@ export async function updateProductAction(formData: FormData): Promise<
 
 		const { data: existing, error: fetchError } = await adminClient
 			.from("products")
-			.select("image_path, created_by")
+			.select("image_path, created_by, meta")
 			.eq("id", id)
 			.maybeSingle();
 
@@ -215,6 +245,8 @@ export async function updateProductAction(formData: FormData): Promise<
 			payload.categoryId,
 			payload.newCategoryName,
 		);
+		const quantityValue = payload.quantity ?? 0;
+		const resolvedStatus = quantityValue <= 0 ? "archived" : payload.status;
 
 		let imageUrl = existing.image_path ?? null;
 		if (payload.imageFile instanceof File) {
@@ -228,6 +260,8 @@ export async function updateProductAction(formData: FormData): Promise<
 			imageUrl = upload.publicUrl;
 		}
 
+		const meta = buildProductMeta(existing.meta, payload.brand);
+
 		const { error: updateError } = await adminClient
 			.from("products")
 			.update({
@@ -238,9 +272,10 @@ export async function updateProductAction(formData: FormData): Promise<
 				cost_price: payload.costPrice,
 				sell_price: payload.sellPrice ?? null,
 				currency: payload.currency ?? "NIO",
-				status: payload.status,
+				status: resolvedStatus,
 				image_path: imageUrl,
-				quantity: payload.quantity ?? 0,
+				quantity: quantityValue,
+				meta,
 			})
 			.eq("id", id);
 
@@ -295,6 +330,8 @@ export async function archiveProductAction(
 			throw new Error(error.message);
 		}
 
+		revalidatePath("/inventory");
+
 		return {
 			success: true,
 			data: { id: productId },
@@ -316,6 +353,98 @@ export async function archiveProductAction(
 		return {
 			success: false,
 			errors: { form: ["No pudimos archivar el producto."] },
+		};
+	}
+}
+
+export async function deleteProductAction(
+	productId: string,
+): Promise<ActionResult<{ id: string }>> {
+	if (!productId) {
+		return { success: false, errors: { form: ["ID de producto inválido"] } };
+	}
+
+	try {
+		const supabase = await createSupabaseServerClient();
+		const adminClient = createSupabaseAdminClient();
+		const [{ data: authData }] = await Promise.all([supabase.auth.getUser()]);
+
+		const { data: existing, error: fetchError } = await adminClient
+			.from("products")
+			.select("image_path, created_by")
+			.eq("id", productId)
+			.maybeSingle();
+
+		if (fetchError) {
+			throw new Error(fetchError.message);
+		}
+
+		if (!existing) {
+			return {
+				success: false,
+				errors: { form: ["Producto no encontrado"] },
+			};
+		}
+
+		if (
+			existing.created_by &&
+			authData?.user?.id &&
+			existing.created_by !== authData.user.id
+		) {
+			return {
+				success: false,
+				errors: {
+					form: ["No tienes permisos para eliminar este producto."],
+				},
+			};
+		}
+
+		const { error: deleteError } = await adminClient
+			.from("products")
+			.delete()
+			.eq("id", productId);
+
+		if (deleteError) {
+			throw new Error(deleteError.message);
+		}
+
+		if (existing.image_path) {
+			try {
+				await deleteImageFromBucket(
+					adminClient,
+					"products",
+					existing.image_path,
+				);
+			} catch (storageError) {
+				console.error("[deleteProductAction:deleteImage]", storageError);
+			}
+		}
+
+		revalidatePath("/inventory");
+
+		return {
+			success: true,
+			data: { id: productId },
+			message: "Producto eliminado definitivamente",
+		};
+	} catch (error) {
+		if (error instanceof MissingEnvironmentVariableError) {
+			return {
+				success: false,
+				errors: {
+					form: [
+						`Falta configurar la variable de entorno ${error.envVar}. Revisa la guía de instalación para obtener el valor correcto.`,
+					],
+				},
+			};
+		}
+
+		console.error("[deleteProductAction]", error);
+		return {
+			success: false,
+			errors: {
+				form: ["No pudimos eliminar el producto."],
+			},
 		};
 	}
 }

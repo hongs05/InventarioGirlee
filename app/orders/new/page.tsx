@@ -1,8 +1,8 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import DashboardShell from "@/components/dashboard-shell";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { redirect } from "next/navigation";
 
 export default async function NewOrderPage() {
 	const supabase = await createSupabaseServerClient();

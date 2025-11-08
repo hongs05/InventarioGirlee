@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import DashboardShell from "@/components/dashboard-shell";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+
 import { PosTerminal } from "./_components/pos-terminal";
 
 const DEFAULT_CURRENCY = "NIO";

@@ -1,18 +1,18 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useCallback, useMemo, useState, useTransition } from "react";
+import { useForm, useWatch } from "react-hook-form";
 
-import { UploadImage } from "@/components/UploadImage";
 import { PriceTiers } from "@/components/PriceTiers";
+import { UploadImage } from "@/components/UploadImage";
+import type { ActionErrorRecord, ActionResult } from "@/lib/actions";
 import { recommendPrice, type PriceRecommendation } from "@/lib/pricing";
 import {
 	ProductFormValues,
 	productFormSchema,
 	productStatusEnum,
 } from "@/lib/schemas";
-import type { ActionErrorRecord, ActionResult } from "@/lib/actions";
 
 export type CategoryOption = {
 	id: number;
@@ -32,6 +32,88 @@ type ProductFormProps = {
 
 const statusOptions = productStatusEnum.options;
 
+type GenerateSkuArgs = {
+	categoryName?: string;
+	brand?: string;
+	productName?: string;
+};
+
+function generateSkuFromValues({
+	categoryName,
+	brand,
+	productName,
+}: GenerateSkuArgs): string | null {
+	const categorySegment = extractPrefix(categoryName, 3);
+	const brandSegment = extractPrefix(brand, 3);
+	const nameSegment = extractInitials(productName, 4);
+
+	const segments = [categorySegment, brandSegment, nameSegment].filter(
+		(segment) => segment.length > 0,
+	);
+
+	if (!segments.length) {
+		return null;
+	}
+
+	const base = segments.join("-");
+	const suffix = computeNumericSuffix(segments.join("|"));
+
+	return suffix ? `${base}-${suffix}` : base;
+}
+
+function extractPrefix(value: string | undefined, length: number): string {
+	const normalized = normalizeForSku(value).replace(/\s+/g, "");
+	if (!normalized) {
+		return "";
+	}
+
+	return normalized.slice(0, length).toUpperCase();
+}
+
+function extractInitials(value: string | undefined, length: number): string {
+	const normalized = normalizeForSku(value);
+	if (!normalized) {
+		return "";
+	}
+
+	const words = normalized.split(/\s+/).filter(Boolean);
+	if (!words.length) {
+		return "";
+	}
+
+	const initials = words.map((word) => word[0]).join("");
+	const fallback = normalized.replace(/\s+/g, "");
+	const combined = `${initials}${fallback}`.toUpperCase();
+
+	return combined.slice(0, length);
+}
+
+function normalizeForSku(value: string | undefined): string {
+	if (!value) {
+		return "";
+	}
+
+	return value
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
+		.replace(/[^A-Za-z0-9\s]+/g, " ")
+		.trim();
+}
+
+function computeNumericSuffix(source: string): string {
+	if (!source) {
+		return "";
+	}
+
+	let hash = 0;
+	for (let index = 0; index < source.length; index += 1) {
+		hash = (hash * 31 + source.charCodeAt(index)) & 0xffffffff;
+	}
+
+	const numeric = Math.abs(hash) % 1000;
+	return numeric.toString().padStart(3, "0");
+}
+
 export function ProductForm({
 	categories,
 	defaultValues,
@@ -49,11 +131,11 @@ export function ProductForm({
 	const isEditing = Boolean(
 		defaultValues && Object.keys(defaultValues).length > 0,
 	);
-
 	const form = useForm<ProductFormValues>({
 		resolver: zodResolver(productFormSchema),
 		defaultValues: {
 			name: defaultValues?.name ?? "",
+			brand: defaultValues?.brand,
 			sku: defaultValues?.sku,
 			description: defaultValues?.description,
 			categoryId: defaultValues?.categoryId,
@@ -70,14 +152,19 @@ export function ProductForm({
 	const {
 		register,
 		handleSubmit,
-		watch,
 		formState: { errors, isSubmitting },
 		setValue,
 		reset,
+		control,
+		setError,
+		clearErrors,
 	} = form;
 
-	const costPrice = watch("costPrice");
-	const categoryId = watch("categoryId");
+	const costPrice = useWatch({ control, name: "costPrice" });
+	const categoryId = useWatch({ control, name: "categoryId" });
+	const currencyValue = useWatch({ control, name: "currency" }) ?? "NIO";
+	const nameValue = useWatch({ control, name: "name" }) ?? "";
+	const brandValue = useWatch({ control, name: "brand" }) ?? "";
 
 	const selectedCategoryName = useMemo(() => {
 		if (!categoryId) return undefined;
@@ -88,13 +175,14 @@ export function ProductForm({
 	}, [categoryId, categories]);
 
 	const recommendation = useMemo(() => {
-		if (!costPrice || Number(costPrice) <= 0) {
+		const parsedCost = Number(costPrice ?? 0);
+		if (!Number.isFinite(parsedCost) || parsedCost <= 0) {
 			return null;
 		}
 
 		try {
 			return recommendPrice({
-				costPrice: Number(costPrice),
+				costPrice: parsedCost,
 				categoryName: selectedCategoryName,
 			});
 		} catch (error) {
@@ -114,9 +202,37 @@ export function ProductForm({
 		[setShowRecommendations, setValue],
 	);
 
+	const handleGenerateSku = useCallback(() => {
+		clearErrors("sku");
+		const generated = generateSkuFromValues({
+			categoryName: selectedCategoryName,
+			brand: brandValue,
+			productName: nameValue,
+		});
+
+		if (!generated) {
+			setError("sku", {
+				type: "manual",
+				message:
+					"Completa al menos el nombre, la marca o la categoría para generar un SKU.",
+			});
+			return;
+		}
+
+		setValue("sku", generated, { shouldDirty: true, shouldValidate: true });
+	}, [
+		brandValue,
+		clearErrors,
+		nameValue,
+		selectedCategoryName,
+		setError,
+		setValue,
+	]);
+
 	const onSubmit = handleSubmit((values) => {
 		const formData = new FormData();
 		formData.append("name", values.name);
+		if (values.brand) formData.append("brand", values.brand);
 		if (values.sku) formData.append("sku", values.sku);
 		if (values.description) formData.append("description", values.description);
 		if (values.categoryId)
@@ -146,6 +262,7 @@ export function ProductForm({
 			if (!isEditing) {
 				reset({
 					name: "",
+					brand: undefined,
 					sku: undefined,
 					description: undefined,
 					categoryId: undefined,
@@ -204,13 +321,40 @@ export function ProductForm({
 						)}
 					</div>
 
+					<div className='space-y-2'>
+						<label
+							className='text-sm font-medium text-gray-700'
+							htmlFor='brand'>
+							Marca
+						</label>
+						<input
+							id='brand'
+							type='text'
+							autoComplete='off'
+							{...register("brand")}
+							placeholder='Ej. Neutrogena'
+							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
+						/>
+						{errors.brand && (
+							<p className='text-xs text-red-500'>{errors.brand.message}</p>
+						)}
+					</div>
+
 					<div className='grid gap-4 sm:grid-cols-2'>
 						<div className='space-y-2'>
-							<label
-								className='text-sm font-medium text-gray-700'
-								htmlFor='sku'>
-								SKU
-							</label>
+							<div className='flex items-center justify-between'>
+								<label
+									className='text-sm font-medium text-gray-700'
+									htmlFor='sku'>
+									SKU
+								</label>
+								<button
+									type='button'
+									onClick={handleGenerateSku}
+									className='inline-flex items-center rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100'>
+									Generar
+								</button>
+							</div>
 							<input
 								id='sku'
 								type='text'
@@ -393,7 +537,7 @@ export function ProductForm({
 						{showRecommendations && (
 							<PriceTiers
 								recommendation={recommendation}
-								currency={watch("currency") ?? "NIO"}
+								currency={currencyValue}
 								onSelectTier={handleTierSelect}
 							/>
 						)}

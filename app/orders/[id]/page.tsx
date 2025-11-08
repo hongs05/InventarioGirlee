@@ -6,7 +6,6 @@ import OrderReceiptCard, {
 	type OrderReceiptData,
 	type OrderReceiptItem,
 } from "@/app/orders/_components/order-receipt";
-
 import DashboardShell from "@/components/dashboard-shell";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 

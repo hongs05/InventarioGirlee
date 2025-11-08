@@ -11,6 +11,31 @@ const optionalTrimmedString = z
 		return trimmed.length > 0 ? trimmed : undefined;
 	});
 
+const requiredTrimmedString = z
+	.string()
+	.trim()
+	.min(1, "El nombre es obligatorio")
+	.max(120, "Máximo 120 caracteres");
+
+const requiredCategoryId = z
+	.union([z.string(), z.number()])
+	.transform((value) => {
+		if (typeof value === "number") {
+			return Number.isFinite(value) ? value : NaN;
+		}
+
+		const trimmed = String(value ?? "").trim();
+		if (!trimmed) {
+			return NaN;
+		}
+
+		const parsed = Number(trimmed);
+		return Number.isFinite(parsed) ? parsed : NaN;
+	})
+	.refine((value) => Number.isInteger(value) && value > 0, {
+		message: "Selecciona una categoría válida",
+	});
+
 const optionalPhoneNumber = z
 	.union([z.string(), z.number(), z.null(), z.undefined()])
 	.transform((value) => {
@@ -75,6 +100,81 @@ const nonNegativeInteger = z
 		},
 	);
 
+const requiredMoneyAmount = z
+	.union([z.string(), z.number()])
+	.transform((value) => {
+		if (typeof value === "number") {
+			return Number.isFinite(value) ? value : NaN;
+		}
+
+		const normalized = String(value)
+			.trim()
+			.replace(/\s+/g, "")
+			.replace(",", ".");
+
+		if (!normalized) {
+			return NaN;
+		}
+
+		const parsed = Number(normalized);
+		return Number.isFinite(parsed) ? parsed : NaN;
+	})
+	.refine((value) => Number.isFinite(value) && value > 0, {
+		message: "Ingrese un monto válido",
+	});
+
+const nonNegativeMoneyAmount = z
+	.union([z.string(), z.number(), z.null(), z.undefined()])
+	.transform((value) => {
+		if (value === undefined || value === null) {
+			return undefined;
+		}
+
+		if (typeof value === "number") {
+			return Number.isFinite(value) ? value : NaN;
+		}
+
+		const normalized = String(value)
+			.trim()
+			.replace(/\s+/g, "")
+			.replace(",", ".");
+
+		if (!normalized) {
+			return undefined;
+		}
+
+		const parsed = Number(normalized);
+		return Number.isFinite(parsed) ? parsed : NaN;
+	})
+	.refine(
+		(value) => value === undefined || (Number.isFinite(value) && value >= 0),
+		{
+			message: "Ingrese un monto válido",
+		},
+	);
+
+const requiredDateTimeString = z
+	.union([z.string(), z.date()])
+	.transform((value) => {
+		if (value instanceof Date) {
+			return value.toISOString();
+		}
+
+		const trimmed = String(value ?? "").trim();
+		return trimmed;
+	})
+	.refine(
+		(value) => {
+			if (!value) {
+				return false;
+			}
+
+			const parsed = new Date(value);
+			return !Number.isNaN(parsed.getTime());
+		},
+		{ message: "Selecciona una fecha válida" },
+	);
+
 export const productStatusEnum = z.enum(["active", "draft", "archived"]);
 
 export const productFormSchema = z.object({
@@ -82,6 +182,7 @@ export const productFormSchema = z.object({
 		.string()
 		.min(1, "El nombre es obligatorio")
 		.max(200, "Máximo 200 caracteres"),
+	brand: optionalTrimmedString,
 	sku: optionalTrimmedString,
 	description: optionalTrimmedString,
 	categoryId: optionalTrimmedString,
@@ -122,6 +223,19 @@ export const productUpdateSchema = productFormSchema.extend({
 export type ProductFormValues = z.infer<typeof productFormSchema>;
 export type ProductUpdateValues = z.infer<typeof productUpdateSchema>;
 
+export const categoryFormSchema = z.object({
+	name: requiredTrimmedString,
+});
+
+export type CategoryFormValues = z.infer<typeof categoryFormSchema>;
+
+export const subcategoryFormSchema = z.object({
+	categoryId: requiredCategoryId,
+	name: requiredTrimmedString,
+});
+
+export type SubcategoryFormValues = z.infer<typeof subcategoryFormSchema>;
+
 const comboItemSchema = z.object({
 	productId: z.string().uuid("Producto inválido"),
 	name: z.string().min(1),
@@ -147,6 +261,7 @@ export const comboFormSchema = z.object({
 	items: z.array(comboItemSchema).min(1, "Selecciona al menos 1 producto"),
 	imageFile: z.any().optional(),
 	suggestedPrice: optionalNumber,
+	promoTag: optionalTrimmedString.optional(),
 });
 
 export const comboUpdateSchema = comboFormSchema.extend({
@@ -156,6 +271,72 @@ export const comboUpdateSchema = comboFormSchema.extend({
 export type ComboItemInput = z.infer<typeof comboItemSchema>;
 export type ComboFormValues = z.infer<typeof comboFormSchema>;
 export type ComboUpdateValues = z.infer<typeof comboUpdateSchema>;
+
+export const expenseTransactionTypeEnum = z.enum(["expense", "inventory"]);
+
+export const expenseFormSchema = z.object({
+	description: z
+		.string()
+		.min(1, "La descripción es obligatoria")
+		.max(500, "Máximo 500 caracteres"),
+	category: optionalTrimmedString,
+	type: expenseTransactionTypeEnum.default("expense"),
+	providerName: optionalTrimmedString,
+	amount: requiredMoneyAmount,
+	currency: z.string().min(1, "Moneda requerida").default("NIO"),
+	reference: optionalTrimmedString,
+	occurredAt: requiredDateTimeString,
+});
+
+export type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
+
+const positiveQuantity = z
+	.union([z.string(), z.number()])
+	.transform((value) => {
+		if (typeof value === "number") {
+			return Number.isFinite(value) ? value : NaN;
+		}
+
+		const normalized = String(value).trim();
+		if (!normalized) {
+			return NaN;
+		}
+
+		const parsed = Number(normalized.replace(/,/g, "."));
+		return Number.isFinite(parsed) ? parsed : NaN;
+	})
+	.refine((value) => Number.isInteger(value) && value > 0, {
+		message: "Ingrese una cantidad válida",
+	});
+
+export const inventoryIntakeFormSchema = z
+	.object({
+		productId: z.string().uuid("Selecciona un producto válido"),
+		providerName: optionalTrimmedString,
+		quantity: positiveQuantity,
+		unitCost: requiredMoneyAmount,
+		totalCost: nonNegativeMoneyAmount,
+		currency: z.string().min(1, "Moneda requerida").default("NIO"),
+		notes: optionalTrimmedString,
+		occurredAt: requiredDateTimeString,
+	})
+	.transform((data) => {
+		const computedTotal =
+			data.totalCost ?? Number(data.unitCost * data.quantity);
+
+		return {
+			...data,
+			totalCost: computedTotal,
+		};
+	})
+	.refine((data) => Number.isFinite(data.totalCost) && data.totalCost >= 0, {
+		message: "El costo total debe ser mayor o igual a cero",
+		path: ["totalCost"],
+	});
+
+export type InventoryIntakeFormValues = z.infer<
+	typeof inventoryIntakeFormSchema
+>;
 
 const orderProductItemSchema = z.object({
 	productId: z.string().uuid("Producto inválido"),

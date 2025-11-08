@@ -1,27 +1,43 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useState,
+	useTransition,
+} from "react";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 
-import { UploadImage } from "@/components/UploadImage";
 import { ComboSummary } from "@/components/ComboSummary";
 import type { ComboSummaryItem } from "@/components/ComboSummary";
 import { PriceTiers } from "@/components/PriceTiers";
-import { recommendPrice, type PriceRecommendation } from "@/lib/pricing";
+import { UploadImage } from "@/components/UploadImage";
+import type { ActionErrorRecord, ActionResult } from "@/lib/actions";
+import {
+	recommendPrice,
+	type PriceRecommendation,
+	type PriceRule,
+} from "@/lib/pricing";
+import {
+	normalizeRule,
+	selectBestRule,
+	type ProductPricingMetric,
+} from "@/lib/pricing-rules";
 import {
 	ComboFormValues,
 	comboFormSchema,
 	comboStatusEnum,
 	ComboItemInput,
 } from "@/lib/schemas";
-import type { ActionErrorRecord, ActionResult } from "@/lib/actions";
 
 export type ComboProductOption = {
 	id: string;
 	name: string;
 	cost_price: number;
-	category?: string | null;
+	categoryId?: string | null;
+	categoryName?: string | null;
 };
 
 type ComboFormProps = {
@@ -33,6 +49,8 @@ type ComboFormProps = {
 	submitAction: (formData: FormData) => Promise<ActionResult<unknown>>;
 	submitLabel?: string;
 	heading?: string;
+	pricingRules?: PriceRule[];
+	productMetrics?: ProductPricingMetric[];
 };
 
 const statusOptions = comboStatusEnum.options;
@@ -43,6 +61,8 @@ export function ComboForm({
 	submitAction,
 	submitLabel = "Guardar combo",
 	heading = "Nuevo combo",
+	pricingRules = [],
+	productMetrics = [],
 }: ComboFormProps) {
 	const [serverErrors, setServerErrors] = useState<ActionErrorRecord | null>(
 		null,
@@ -52,14 +72,6 @@ export function ComboForm({
 	const [searchTerm, setSearchTerm] = useState("");
 	const [imageKey, setImageKey] = useState(0);
 	const isEditing = Boolean(defaultValues?.id);
-	const [selectedItems, setSelectedItems] = useState<ComboSummaryItem[]>(
-		(defaultValues?.items ?? []).map((item) => ({
-			id: item.productId,
-			name: item.name,
-			qty: item.qty,
-			costPrice: item.costPrice,
-		})),
-	);
 
 	const form = useForm<ComboFormValues>({
 		resolver: zodResolver(comboFormSchema),
@@ -71,38 +83,130 @@ export function ComboForm({
 			items: defaultValues?.items ?? [],
 			imageFile: undefined,
 			suggestedPrice: defaultValues?.suggestedPrice,
+			promoTag: defaultValues?.promoTag,
 		},
 	});
 
-	const { register, handleSubmit, watch, setValue, reset, formState } = form;
-	const suggestedPriceValue = watch("suggestedPrice");
-
-	useEffect(() => {
-		register("imageFile");
-		register("items");
-	}, [register]);
-
-	useEffect(() => {
-		setValue(
-			"items",
-			selectedItems.map<ComboItemInput>((item) => ({
-				productId: item.id,
-				name: item.name,
-				costPrice: item.costPrice,
-				qty: item.qty,
-			})),
-			{ shouldDirty: true, shouldValidate: true },
-		);
-	}, [selectedItems, setValue]);
-
-	const packagingCost = watch("packagingCost") ?? 0;
-	const status = watch("status") ?? "active";
-	const currency = "NIO";
-
+	const { register, handleSubmit, setValue, reset, control, formState } = form;
+	const suggestedPriceValue = useWatch({ control, name: "suggestedPrice" });
+	const {
+		append,
+		update,
+		remove: removeItem,
+	} = useFieldArray({
+		control,
+		name: "items",
+	});
 	const productsById = useMemo(
 		() => new Map(products.map((product) => [product.id, product])),
 		[products],
 	);
+	const rawItems = useWatch({ control, name: "items" }) as
+		| ComboItemInput[]
+		| undefined;
+	const watchedItems = useMemo(() => rawItems ?? [], [rawItems]);
+	const comboItems = useMemo<ComboSummaryItem[]>(() => {
+		return watchedItems
+			.map((item) => {
+				if (!item?.productId) {
+					return null;
+				}
+				const product = productsById.get(item.productId);
+				const qty = Math.max(1, Number(item.qty ?? 1));
+				const costPrice = Number(item.costPrice ?? product?.cost_price ?? 0);
+				return {
+					id: item.productId,
+					name: item.name ?? product?.name ?? "Producto",
+					qty,
+					costPrice,
+				};
+			})
+			.filter((item): item is ComboSummaryItem => Boolean(item?.id));
+	}, [watchedItems, productsById]);
+	const normalizedRules = useMemo(
+		() => pricingRules.map((rule) => normalizeRule(rule)),
+		[pricingRules],
+	);
+	const metricsByProductId = useMemo(() => {
+		const map = new Map<string, ProductPricingMetric>();
+		productMetrics.forEach((metric) => {
+			if (metric?.productId) {
+				map.set(metric.productId, metric);
+			}
+		});
+		return map;
+	}, [productMetrics]);
+	const promoTagValue = useWatch({ control, name: "promoTag" });
+	const inventoryAges = useMemo(() => {
+		return comboItems
+			.map((item) => metricsByProductId.get(item.id)?.inventoryAgeDays ?? null)
+			.filter(
+				(value): value is number =>
+					typeof value === "number" && Number.isFinite(value),
+			);
+	}, [comboItems, metricsByProductId]);
+	const costChanges = useMemo(() => {
+		return comboItems
+			.map((item) => metricsByProductId.get(item.id)?.costChangePct ?? null)
+			.filter(
+				(value): value is number =>
+					typeof value === "number" && Number.isFinite(value),
+			);
+	}, [comboItems, metricsByProductId]);
+	const comboCategories = useMemo(() => {
+		const registry = new Map<
+			string,
+			{ id: string | null; name: string | null }
+		>();
+		comboItems.forEach((item) => {
+			const product = productsById.get(item.id);
+			const categoryId = product?.categoryId ?? null;
+			const categoryName = product?.categoryName ?? null;
+			const key = (categoryId ?? categoryName ?? item.id).toLowerCase();
+			if (!registry.has(key)) {
+				registry.set(key, { id: categoryId, name: categoryName });
+			}
+		});
+		return Array.from(registry.values());
+	}, [comboItems, productsById]);
+	const comboContext = useMemo(
+		() => ({
+			categories: comboCategories,
+			promoTag: promoTagValue ? String(promoTagValue) : null,
+			inventoryAges,
+			costChanges,
+		}),
+		[comboCategories, promoTagValue, inventoryAges, costChanges],
+	);
+	const appliedRule = useMemo(() => {
+		if (!comboItems.length || !normalizedRules.length) {
+			return null;
+		}
+		return selectBestRule(normalizedRules, comboContext);
+	}, [comboItems.length, normalizedRules, comboContext]);
+	const primaryCategoryName = comboCategories.length
+		? comboCategories[0]?.name ?? null
+		: null;
+
+	useEffect(() => {
+		register("imageFile");
+	}, [register]);
+
+	const packagingCost = useWatch({ control, name: "packagingCost" }) ?? 0;
+	const currency = "NIO";
+	const nameErrorId = formState.errors.name ? "combo-name-error" : undefined;
+	const descriptionErrorId = formState.errors.description
+		? "combo-description-error"
+		: undefined;
+	const packagingErrorId = formState.errors.packagingCost
+		? "combo-packaging-error"
+		: undefined;
+	const statusErrorId = formState.errors.status
+		? "combo-status-error"
+		: undefined;
+	const promoTagErrorId = formState.errors.promoTag
+		? "combo-promo-error"
+		: undefined;
 
 	const filteredProducts = useMemo(() => {
 		if (!searchTerm) return products;
@@ -113,7 +217,7 @@ export function ComboForm({
 	}, [products, searchTerm]);
 
 	const totals = useMemo(() => {
-		const itemsCost = selectedItems.reduce(
+		const itemsCost = comboItems.reduce(
 			(acc, item) => acc + item.costPrice * item.qty,
 			0,
 		);
@@ -121,50 +225,57 @@ export function ComboForm({
 			itemsCost,
 			totalCost: itemsCost + (Number(packagingCost) || 0),
 		};
-	}, [selectedItems, packagingCost]);
+	}, [comboItems, packagingCost]);
 
-const recommendation = useMemo(() => {
-	if (totals.totalCost <= 0) return null;
-	return recommendPrice({ costPrice: totals.totalCost });
-}, [totals.totalCost]);
-
-const handleTierSelect = useCallback(
-	(_tier: PriceRecommendation["appliedTier"], value: number) => {
-		setValue("suggestedPrice", Number(value.toFixed(2)), {
-			shouldDirty: true,
-			shouldValidate: true,
+	const recommendation = useMemo(() => {
+		if (totals.totalCost <= 0) return null;
+		return recommendPrice({
+			costPrice: totals.totalCost,
+			categoryName: primaryCategoryName ?? undefined,
+			rule: appliedRule,
 		});
-	},
-	[setValue],
-);
+	}, [totals.totalCost, primaryCategoryName, appliedRule]);
 
-useEffect(() => {
-	if (
-		recommendation &&
-		!formState.dirtyFields?.suggestedPrice &&
-		recommendation.suggested !== undefined
-	) {
-		setValue("suggestedPrice", Number(recommendation.suggested.toFixed(2)), {
-			shouldDirty: false,
-		});
-	}
-}, [formState.dirtyFields?.suggestedPrice, recommendation, setValue]);
+	const handleTierSelect = useCallback(
+		(_tier: PriceRecommendation["appliedTier"], value: number) => {
+			setValue("suggestedPrice", Number(value.toFixed(2)), {
+				shouldDirty: true,
+				shouldValidate: true,
+			});
+		},
+		[setValue],
+	);
+
+	useEffect(() => {
+		if (
+			recommendation &&
+			!formState.dirtyFields?.suggestedPrice &&
+			recommendation.suggested !== undefined
+		) {
+			setValue("suggestedPrice", Number(recommendation.suggested.toFixed(2)), {
+				shouldDirty: false,
+			});
+		}
+	}, [formState.dirtyFields?.suggestedPrice, recommendation, setValue]);
 
 	const onSubmit = handleSubmit((values) => {
 		const formData = new FormData();
 		formData.append("name", values.name);
 		if (values.description) formData.append("description", values.description);
 		formData.append("packagingCost", String(values.packagingCost ?? 0));
-		formData.append("status", status);
+		formData.append("status", values.status ?? "active");
 		if (values.suggestedPrice !== undefined) {
 			formData.append("suggestedPrice", String(values.suggestedPrice));
+		}
+		if (values.promoTag) {
+			formData.append("promoTag", values.promoTag);
 		}
 
 		if (values.imageFile instanceof File) {
 			formData.append("imageFile", values.imageFile);
 		}
 
-		const payload = selectedItems.map((item) => ({
+		const payload = comboItems.map((item) => ({
 			productId: item.id,
 			name: item.name,
 			costPrice: item.costPrice,
@@ -185,7 +296,6 @@ useEffect(() => {
 
 			setSuccessMessage(result.message ?? "Combo listo para guardar");
 			if (!isEditing) {
-				setSelectedItems([]);
 				setSearchTerm("");
 				setImageKey((prev) => prev + 1);
 				reset({
@@ -196,6 +306,7 @@ useEffect(() => {
 					items: [],
 					imageFile: undefined,
 					suggestedPrice: undefined,
+					promoTag: undefined,
 				});
 			}
 		});
@@ -210,36 +321,57 @@ useEffect(() => {
 		const product = productsById.get(productId);
 		if (!product) return;
 
-		setSelectedItems((prev) => {
-			const existing = prev.find((item) => item.id === productId);
-			if (existing) {
-				return prev.map((item) =>
-					item.id === productId ? { ...item, qty: item.qty + 1 } : item,
-				);
-			}
+		const existingIndex = watchedItems.findIndex(
+			(item) => item.productId === productId,
+		);
 
-			return [
-				...prev,
-				{
-					id: product.id,
-					name: product.name,
-					qty: 1,
-					costPrice: product.cost_price,
-				},
-			];
+		if (existingIndex >= 0) {
+			const current = watchedItems[existingIndex];
+			if (current) {
+				const nextQty = Math.max(1, Number(current.qty ?? 0) + 1);
+				update(existingIndex, {
+					...current,
+					qty: nextQty,
+				});
+			}
+			return;
+		}
+
+		append({
+			productId: product.id,
+			name: product.name,
+			costPrice: product.cost_price,
+			qty: 1,
 		});
 	}
 
 	function handleQtyChange(productId: string, qty: number) {
-		setSelectedItems((prev) =>
-			prev
-				.map((item) => (item.id === productId ? { ...item, qty } : item))
-				.filter((item) => item.qty > 0),
+		const sanitizedQty = Math.max(0, Number.isFinite(qty) ? qty : 0);
+		const index = watchedItems.findIndex(
+			(item) => item.productId === productId,
 		);
+		if (index === -1) return;
+
+		if (sanitizedQty <= 0) {
+			removeItem(index);
+			return;
+		}
+
+		const current = watchedItems[index];
+		if (!current) return;
+
+		update(index, {
+			...current,
+			qty: sanitizedQty,
+		});
 	}
 
 	function handleRemoveProduct(productId: string) {
-		setSelectedItems((prev) => prev.filter((item) => item.id !== productId));
+		const index = watchedItems.findIndex(
+			(item) => item.productId === productId,
+		);
+		if (index === -1) return;
+		removeItem(index);
 	}
 
 	return (
@@ -257,16 +389,48 @@ useEffect(() => {
 				</div>
 
 				{successMessage && (
-					<div className='rounded-md border border-blush-200 bg-blush-50 px-4 py-3 text-sm text-blush-700'>
+					<div
+						role='status'
+						aria-live='polite'
+						className='rounded-md border border-blush-200 bg-blush-50 px-4 py-3 text-sm text-blush-700'>
 						{successMessage}
 					</div>
 				)}
 
 				{serverErrors?.form && (
-					<div className='rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'>
+					<div
+						role='alert'
+						aria-live='assertive'
+						className='rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'>
 						{serverErrors.form.join(" ")}
 					</div>
 				)}
+
+				<div className='space-y-2'>
+					<label
+						htmlFor='promoTag'
+						className='text-sm font-medium text-gray-700'>
+						Etiqueta de promoción
+					</label>
+					<input
+						id='promoTag'
+						type='text'
+						{...register("promoTag")}
+						aria-invalid={!!formState.errors.promoTag}
+						aria-describedby={promoTagErrorId}
+						placeholder='Ej. verano-2025, liquidación, etc.'
+						className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
+					/>
+					{formState.errors.promoTag && (
+						<p id={promoTagErrorId} className='text-xs text-red-500'>
+							{formState.errors.promoTag.message}
+						</p>
+					)}
+					<p className='text-xs text-gray-500'>
+						Opcional. Usa una etiqueta consistente para activar reglas de
+						pricing durante campañas o promociones.
+					</p>
+				</div>
 
 				<div className='space-y-4 rounded-lg border border-gray-200 bg-white p-4 shadow-sm'>
 					<div className='space-y-2'>
@@ -277,10 +441,12 @@ useEffect(() => {
 							id='name'
 							type='text'
 							{...register("name")}
+							aria-invalid={!!formState.errors.name}
+							aria-describedby={nameErrorId}
 							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 						/>
 						{formState.errors.name && (
-							<p className='text-xs text-red-500'>
+							<p id={nameErrorId} className='text-xs text-red-500'>
 								{formState.errors.name.message}
 							</p>
 						)}
@@ -296,11 +462,13 @@ useEffect(() => {
 							id='description'
 							rows={3}
 							{...register("description")}
+							aria-invalid={!!formState.errors.description}
+							aria-describedby={descriptionErrorId}
 							className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 							placeholder='Detalles del combo, beneficios, packaging, etc.'
 						/>
 						{formState.errors.description && (
-							<p className='text-xs text-red-500'>
+							<p id={descriptionErrorId} className='text-xs text-red-500'>
 								{formState.errors.description.message}
 							</p>
 						)}
@@ -319,10 +487,12 @@ useEffect(() => {
 								step='0.01'
 								min={0}
 								{...register("packagingCost", { valueAsNumber: true })}
+								aria-invalid={!!formState.errors.packagingCost}
+								aria-describedby={packagingErrorId}
 								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'
 							/>
 							{formState.errors.packagingCost && (
-								<p className='text-xs text-red-500'>
+								<p id={packagingErrorId} className='text-xs text-red-500'>
 									{formState.errors.packagingCost.message}
 								</p>
 							)}
@@ -336,6 +506,8 @@ useEffect(() => {
 							<select
 								id='status'
 								{...register("status")}
+								aria-invalid={!!formState.errors.status}
+								aria-describedby={statusErrorId}
 								className='block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blush-400 focus:outline-none focus:ring-1 focus:ring-blush-300'>
 								{statusOptions.map((statusValue) => (
 									<option key={statusValue} value={statusValue}>
@@ -348,7 +520,7 @@ useEffect(() => {
 								))}
 							</select>
 							{formState.errors.status && (
-								<p className='text-xs text-red-500'>
+								<p id={statusErrorId} className='text-xs text-red-500'>
 									{formState.errors.status.message}
 								</p>
 							)}
@@ -404,14 +576,14 @@ useEffect(() => {
 					<h3 className='text-lg font-semibold text-gray-900'>
 						Productos en el combo
 					</h3>
-					{!selectedItems.length && (
+					{!comboItems.length && (
 						<div className='rounded-md border border-dashed border-gray-200 bg-gray-50 p-6 text-center text-sm text-gray-500'>
 							Agrega productos desde la lista de la izquierda.
 						</div>
 					)}
 
 					<div className='space-y-3'>
-						{selectedItems.map((item) => (
+						{comboItems.map((item) => (
 							<div
 								key={item.id}
 								className='flex items-center justify-between rounded-md border border-gray-200 p-3'>
@@ -460,7 +632,7 @@ useEffect(() => {
 				/>
 
 				<ComboSummary
-					items={selectedItems}
+					items={comboItems}
 					packagingCost={Number(packagingCost) || 0}
 					suggestedPrice={
 						typeof suggestedPriceValue === "number"
