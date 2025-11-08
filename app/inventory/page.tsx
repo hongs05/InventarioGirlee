@@ -60,9 +60,7 @@ export default async function InventoryPage({
 	);
 	const rawStatus = resolvedSearchParams?.status;
 	const appliedStatus: ProductStatus =
-		rawStatus && allowedStatuses.has(rawStatus)
-			? rawStatus
-			: "active";
+		rawStatus && allowedStatuses.has(rawStatus) ? rawStatus : "active";
 	const appliedCategory =
 		resolvedSearchParams?.category === undefined
 			? ""
@@ -135,10 +133,7 @@ export default async function InventoryPage({
 						categories={categories ?? []}
 						searchParams={normalizedSearchParams}
 					/>
-					<InventoryGrid
-						products={products ?? []}
-						status={appliedStatus}
-					/>
+					<InventoryGrid products={products ?? []} status={appliedStatus} />
 				</div>
 			</Suspense>
 		</DashboardShell>
@@ -233,10 +228,8 @@ async function InventoryGrid({
 				"No tienes productos archivados o eliminados. Archiva un producto para verlo aquí.",
 			draft:
 				"No se encontraron borradores. Guarda un producto como borrador para verlo en esta vista.",
-			deleted:
-				"No se encontraron productos marcados como eliminados.",
-			all:
-				"No se encontraron productos que coincidan con los filtros seleccionados.",
+			deleted: "No se encontraron productos marcados como eliminados.",
+			all: "No se encontraron productos que coincidan con los filtros seleccionados.",
 		};
 
 		return (
@@ -257,13 +250,14 @@ async function InventoryGrid({
 				const recommendation =
 					hasCostPrice && costPrice > 0
 						? recommendPrice({
-							costPrice,
-							categoryName,
-					  })
+								costPrice,
+								categoryName,
+						  })
 						: null;
 				const unitEarnings =
 					hasCostPrice && hasSellPrice ? sellPrice - costPrice : null;
-				const earningsPositive = unitEarnings !== null ? unitEarnings >= 0 : true;
+				const earningsPositive =
+					unitEarnings !== null ? unitEarnings >= 0 : true;
 				const imageSrc = resolveProductImageSrc(product.image_path);
 				const canActivate = product.status === "archived";
 				const canArchive =
@@ -272,8 +266,7 @@ async function InventoryGrid({
 				return (
 					<div
 						key={product.id}
-						className='flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md'
-					>
+						className='flex h-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md'>
 						<div className='relative aspect-4/3 w-full overflow-hidden border-b border-gray-200 bg-gray-100'>
 							{imageSrc ? (
 								<Image
@@ -322,7 +315,10 @@ async function InventoryGrid({
 									</p>
 									<p className='mt-1'>
 										{recommendation
-											? formatCurrency(recommendation.suggested, product.currency)
+											? formatCurrency(
+													recommendation.suggested,
+													product.currency,
+											  )
 											: "Sin datos"}
 									</p>
 								</div>
@@ -337,8 +333,7 @@ async function InventoryGrid({
 													earningsPositive
 														? "font-medium text-emerald-600"
 														: "font-medium text-red-600"
-												}
-											>
+												}>
 												{formatCurrency(unitEarnings, product.currency)}
 											</span>
 										) : (
@@ -350,15 +345,16 @@ async function InventoryGrid({
 									<p className='text-xs font-medium uppercase tracking-wide text-gray-500'>
 										Inventario
 									</p>
-									<div className='mt-1'>{renderQuantityBadge(product.quantity)}</div>
+									<div className='mt-1'>
+										{renderQuantityBadge(product.quantity)}
+									</div>
 								</div>
 							</div>
 
 							<div className='mt-auto flex flex-wrap items-center justify-between gap-2 pt-2'>
 								<Link
 									href={`/inventory/${product.id}`}
-									className='inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100'
-								>
+									className='inline-flex items-center rounded-md border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-100'>
 									Editar
 								</Link>
 								<div className='flex items-center gap-2'>
@@ -370,8 +366,7 @@ async function InventoryGrid({
 											}}>
 											<button
 												type='submit'
-												className='inline-flex items-center rounded-md border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-50'
-											>
+												className='inline-flex items-center rounded-md border border-emerald-200 px-3 py-1.5 text-xs font-medium text-emerald-600 transition hover:bg-emerald-50'>
 												Activar
 											</button>
 										</form>
@@ -384,8 +379,7 @@ async function InventoryGrid({
 											}}>
 											<button
 												type='submit'
-												className='inline-flex items-center rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50'
-											>
+												className='inline-flex items-center rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50'>
 												Archivar
 											</button>
 										</form>

@@ -94,8 +94,7 @@ function ensureAbsoluteUrl(path: string | null | undefined) {
 		return path;
 	}
 	try {
-		const baseUrl =
-			process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:4000";
+		const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:4000";
 		return new URL(path, baseUrl).toString();
 	} catch {
 		return null;
@@ -225,7 +224,6 @@ function drawHeader(
 		},
 	);
 }
-
 
 function drawCard(
 	page: PDFPage,
@@ -387,20 +385,22 @@ export async function GET() {
 
 	const products: CatalogEntry[] = ((data ?? []) as ProductRow[]).map(
 		(product) => {
-		const currency = resolveCurrency(product.currency);
-		const unitPrice = safeNumber(product.sell_price ?? product.cost_price ?? 0);
-		const quantity = Math.max(0, safeNumber(product.quantity ?? 0));
-		const totalPrice = unitPrice * quantity;
+			const currency = resolveCurrency(product.currency);
+			const unitPrice = safeNumber(
+				product.sell_price ?? product.cost_price ?? 0,
+			);
+			const quantity = Math.max(0, safeNumber(product.quantity ?? 0));
+			const totalPrice = unitPrice * quantity;
 
-		return {
-			id: product.id,
-			name: product.name,
-			description: product.description?.trim() || undefined,
-			imageUrl: product.image_path,
-			unitPriceLabel: formatCurrency(unitPrice, currency),
-			totalPriceLabel: formatCurrency(totalPrice, currency),
-			quantityLabel: quantityFormatter.format(quantity),
-		};
+			return {
+				id: product.id,
+				name: product.name,
+				description: product.description?.trim() || undefined,
+				imageUrl: product.image_path,
+				unitPriceLabel: formatCurrency(unitPrice, currency),
+				totalPriceLabel: formatCurrency(totalPrice, currency),
+				quantityLabel: quantityFormatter.format(quantity),
+			};
 		},
 	);
 
@@ -423,7 +423,10 @@ export async function GET() {
 		}
 
 		const positionX = PAGE_MARGIN + column * (CARD_WIDTH + CARD_GAP);
-		const embeddedImage = await embedProductImage(pdfDoc, entry.imageUrl ?? null);
+		const embeddedImage = await embedProductImage(
+			pdfDoc,
+			entry.imageUrl ?? null,
+		);
 		drawCard(
 			page,
 			entry,

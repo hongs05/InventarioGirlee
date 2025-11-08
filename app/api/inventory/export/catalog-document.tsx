@@ -1,4 +1,11 @@
-import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
+import {
+	Document,
+	Page,
+	View,
+	Text,
+	Image,
+	StyleSheet,
+} from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 
 export type CatalogEntry = {
@@ -137,9 +144,12 @@ export function CatalogDocument({
 				<View style={styles.header}>
 					<Text style={styles.title}>Catálogo de Inventario</Text>
 					<Text style={styles.subtitle}>
-						Selección de productos activos presentada como álbum para tus clientes.
+						Selección de productos activos presentada como álbum para tus
+						clientes.
 					</Text>
-					<Text style={styles.subtitle}>Actualizado el {exportedDateLabel}</Text>
+					<Text style={styles.subtitle}>
+						Actualizado el {exportedDateLabel}
+					</Text>
 				</View>
 
 				{products.length === 0 ? (
@@ -164,15 +174,25 @@ export function CatalogDocument({
 								<View style={styles.cardBody}>
 									<Text style={styles.name}>{product.name}</Text>
 									{product.description ? (
-										<Text style={styles.description}>{product.description}</Text>
+										<Text style={styles.description}>
+											{product.description}
+										</Text>
 									) : null}
 									<View style={styles.priceRow}>
-										<Text style={styles.quantityLabel}>Cantidad disponible</Text>
-										<Text style={styles.quantityValue}>{product.quantityLabel}</Text>
+										<Text style={styles.quantityLabel}>
+											Cantidad disponible
+										</Text>
+										<Text style={styles.quantityValue}>
+											{product.quantityLabel}
+										</Text>
 										<Text style={styles.priceLabel}>Precio unitario</Text>
-										<Text style={styles.priceValue}>{product.unitPriceLabel}</Text>
+										<Text style={styles.priceValue}>
+											{product.unitPriceLabel}
+										</Text>
 										<Text style={styles.priceLabel}>Total inventario</Text>
-										<Text style={styles.priceValue}>{product.totalPriceLabel}</Text>
+										<Text style={styles.priceValue}>
+											{product.totalPriceLabel}
+										</Text>
 									</View>
 								</View>
 							</View>
@@ -183,7 +203,7 @@ export function CatalogDocument({
 				<View style={styles.footer}>
 					<Text>
 						Inventario Girlee · Comparte este catálogo elegante con tus clientes
-							y asegura experiencias memorables.
+						y asegura experiencias memorables.
 					</Text>
 				</View>
 			</Page>
