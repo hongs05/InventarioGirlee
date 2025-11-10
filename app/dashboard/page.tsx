@@ -39,10 +39,20 @@ type SalesTrendPoint = {
 	orderCount: number;
 };
 
+type ProductSnapshotRow = {
+	id: string;
+	name: string | null;
+	status: string | null;
+	quantity: number | string | null;
+	cost_price: number | string | null;
+	sell_price: number | string | null;
+};
+
 type OrderSnapshotRow = {
 	created_at: string | null;
 	total_amount: number | string | null;
 	profit_amount: number | string | null;
+	total_cost: number | string | null;
 };
 
 export default async function DashboardPage() {
@@ -61,7 +71,6 @@ export default async function DashboardPage() {
 	let categoryCount = 0;
 	let ordersLast30 = 0;
 	let revenueLast30 = 0;
-	let profitLast30 = 0;
 	let inventoryUnits = 0;
 	let inventoryValue = 0;
 	let zeroStockCount = 0;
@@ -70,182 +79,181 @@ export default async function DashboardPage() {
 	let recentProductItems: ActivityRow[] = [];
 	let recentComboItems: ActivityRow[] = [];
 
-	const { data: overviewData, error } = await supabase.rpc(
-		"dashboard_overview",
+	const now = new Date();
+	const thirtyDaysAgoISO = new Date(
+		now.getTime() - 30 * 24 * 60 * 60 * 1000,
+	).toISOString();
+
+	const [
+		productStats,
+		activeProductStats,
+		comboStats,
+		categoryStats,
+		productInventory,
+		recentProducts,
+		recentCombos,
+		ordersSnapshot,
+	] = await Promise.all([
+		supabase.from("products").select("id", { count: "exact", head: true }),
+		supabase
+			.from("products")
+			.select("id", { count: "exact", head: true })
+			.eq("status", "active"),
+		supabase.from("combos").select("id", { count: "exact", head: true }),
+		supabase.from("categories").select("id", { count: "exact", head: true }),
+		supabase
+			.from("products")
+			.select("id, name, status, quantity, cost_price, sell_price")
+			.order("name", { ascending: true }),
+		supabase
+			.from("products")
+			.select("id, name, created_at")
+			.order("created_at", { ascending: false })
+			.limit(5),
+		supabase
+			.from("combos")
+			.select("id, name, created_at")
+			.order("created_at", { ascending: false })
+			.limit(5),
+		supabase
+			.from("orders")
+			.select("created_at, total_amount, profit_amount, total_cost")
+			.eq("status", "completed")
+			.gte("created_at", thirtyDaysAgoISO)
+			.limit(2000),
+	]);
+
+	if (productStats.error) {
+		throw new Error(productStats.error.message);
+	}
+	if (activeProductStats.error) {
+		throw new Error(activeProductStats.error.message);
+	}
+	if (comboStats.error) {
+		throw new Error(comboStats.error.message);
+	}
+	if (categoryStats.error) {
+		throw new Error(categoryStats.error.message);
+	}
+	if (productInventory.error) {
+		throw new Error(productInventory.error.message);
+	}
+	if (recentProducts.error) {
+		throw new Error(recentProducts.error.message);
+	}
+	if (recentCombos.error) {
+		throw new Error(recentCombos.error.message);
+	}
+	if (ordersSnapshot.error) {
+		throw new Error(ordersSnapshot.error.message);
+	}
+
+	productCount = productStats.count ?? 0;
+	activeProductCount = activeProductStats.count ?? 0;
+	comboCount = comboStats.count ?? 0;
+	categoryCount = categoryStats.count ?? 0;
+
+	const inventoryRows = ensureArray<ProductSnapshotRow>(
+		(productInventory.data ?? []) as ProductSnapshotRow[],
 	);
 
-	const missingFunctionError = Boolean(
-		error?.code === "PGRST202" ||
-			error?.message
-				?.toLowerCase()
-				.includes("could not find the function public.dashboard_overview"),
-	);
+	inventoryUnits = inventoryRows.reduce((sum, product) => {
+		const qty = Math.max(0, safeNumber(product.quantity));
+		return sum + qty;
+	}, 0);
 
-	if (!error && overviewData?.length) {
-		const overview = overviewData[0] as Record<string, unknown>;
-		productCount = Math.round(safeNumber(overview.product_count));
-		activeProductCount = Math.round(safeNumber(overview.active_product_count));
-		comboCount = Math.round(safeNumber(overview.combo_count));
-		categoryCount = Math.round(safeNumber(overview.category_count));
-		ordersLast30 = Math.round(safeNumber(overview.orders_last_30));
-		revenueLast30 = safeNumber(overview.revenue_last_30);
-		profitLast30 = safeNumber(overview.profit_last_30);
-		inventoryUnits = safeNumber(overview.inventory_units);
-		inventoryValue = safeNumber(overview.inventory_value);
-		zeroStockCount = Math.round(safeNumber(overview.zero_stock_count));
-		lowStockItems = ensureArray<Record<string, unknown>>(
-			overview.low_stock_products,
-		)
-			.map((item) => ({
-				id: String(item.id ?? ""),
-				name: String(item.name ?? "Producto sin nombre"),
-				quantity: Math.max(0, safeNumber(item.quantity)),
-			}))
-			.filter((item) => item.id);
-		salesTrendPoints = ensureArray<Record<string, unknown>>(
-			overview.sales_last_7,
-		)
-			.map((point) => ({
-				saleDate: typeof point.sale_date === "string" ? point.sale_date : "",
-				totalAmount: safeNumber(point.total_amount),
-				profitAmount: safeNumber(point.profit_amount),
-				orderCount: Math.max(0, Math.round(safeNumber(point.order_count))),
-			}))
-			.filter((point) => point.saleDate)
-			.sort((a, b) => a.saleDate.localeCompare(b.saleDate));
-		recentProductItems = ensureArray<ActivityRow>(
-			overview.recent_products as ActivityRow[],
-		);
-		recentComboItems = ensureArray<ActivityRow>(
-			overview.recent_combos as ActivityRow[],
-		);
+	inventoryValue = inventoryRows.reduce((sum, product) => {
+		const qty = Math.max(0, safeNumber(product.quantity));
+		return sum + qty * safeNumber(product.cost_price);
+	}, 0);
 
-		if (productCount > 0 && activeProductCount === 0) {
-			const { count: activeCountFallback } = await supabase
-				.from("products")
-				.select("id", { count: "exact", head: true })
-				.eq("status", "active");
-			if (typeof activeCountFallback === "number") {
-				activeProductCount = activeCountFallback;
-			}
+	const inventoryPotentialProfit = inventoryRows.reduce((sum, product) => {
+		const status = (product.status ?? "").toString();
+		if (status !== "active") {
+			return sum;
 		}
-	} else if (missingFunctionError) {
-		const now = new Date();
-		const thirtyDaysAgoISO = new Date(
-			now.getTime() - 30 * 24 * 60 * 60 * 1000,
-		).toISOString();
+		const qty = Math.max(0, safeNumber(product.quantity));
+		if (qty <= 0) {
+			return sum;
+		}
+		const cost = safeNumber(product.cost_price);
+		const sell = safeNumber(product.sell_price);
+		return sum + (sell - cost) * qty;
+	}, 0);
 
-		const [
-			productStats,
-			comboStats,
-			categoryStats,
-			recentProducts,
-			recentCombos,
-			ordersSnapshot,
-			productSnapshot,
-		] = await Promise.all([
-			supabase.from("products").select("id", { count: "exact", head: true }),
-			supabase.from("combos").select("id", { count: "exact", head: true }),
-			supabase.from("categories").select("id", { count: "exact", head: true }),
-			supabase
-				.from("products")
-				.select("id, name, created_at")
-				.order("created_at", { ascending: false })
-				.limit(5),
-			supabase
-				.from("combos")
-				.select("id, name, created_at")
-				.order("created_at", { ascending: false })
-				.limit(5),
-			supabase
-				.from("orders")
-				.select("created_at, total_amount, profit_amount")
-				.eq("status", "completed")
-				.gte("created_at", thirtyDaysAgoISO)
-				.limit(1000),
-			supabase
-				.from("products")
-				.select("id, name, quantity, cost_price, status")
-				.limit(500),
-		]);
+	const inventoryPotentialMargin =
+		inventoryValue > 0 ? (inventoryPotentialProfit / inventoryValue) * 100 : 0;
 
-		productCount = productStats.count ?? 0;
-		comboCount = comboStats.count ?? 0;
-		categoryCount = categoryStats.count ?? 0;
-		recentProductItems = ensureArray<ActivityRow>(
-			(recentProducts.data ?? []) as ActivityRow[],
-		);
-		recentComboItems = ensureArray<ActivityRow>(
-			(recentCombos.data ?? []) as ActivityRow[],
-		);
-
-		const orderRows = ensureArray<OrderSnapshotRow>(
-			(ordersSnapshot.data ?? []) as OrderSnapshotRow[],
-		);
-		salesTrendPoints = buildWeeklyTrendFromOrders(orderRows);
-		ordersLast30 = orderRows.length;
-		revenueLast30 = orderRows.reduce(
-			(total, row) => total + safeNumber(row.total_amount),
-			0,
-		);
-		profitLast30 = orderRows.reduce(
-			(total, row) => total + safeNumber(row.profit_amount),
-			0,
-		);
-
-		const inventoryRows = ensureArray<Record<string, unknown>>(
-			(productSnapshot.data ?? []) as Record<string, unknown>[],
-		);
-		inventoryUnits = inventoryRows.reduce((sum, product) => {
-			const qty = Math.max(0, safeNumber(product.quantity));
-			return sum + qty;
-		}, 0);
-		inventoryValue = inventoryRows.reduce((sum, product) => {
-			const qty = Math.max(0, safeNumber(product.quantity));
-			return sum + qty * safeNumber(product.cost_price);
-		}, 0);
+	if (activeProductCount === 0 && inventoryRows.length > 0) {
 		activeProductCount = inventoryRows.reduce((count, product) => {
-			const status = String(product.status ?? "active");
+			const status = (product.status ?? "").toString();
 			return status === "active" ? count + 1 : count;
 		}, 0);
-		zeroStockCount = inventoryRows.reduce((count, product) => {
-			const status = String(product.status ?? "active");
-			const qty = safeNumber(product.quantity);
-			if (status === "active" && qty <= 0) {
-				return count + 1;
-			}
-			return count;
-		}, 0);
-		lowStockItems = inventoryRows
-			.filter((product) => {
-				const status = String(product.status ?? "active");
-				const qty = safeNumber(product.quantity);
-				return status === "active" && Number.isFinite(qty) && qty <= 5;
-			})
-			.sort((a, b) => {
-				const qtyDiff = safeNumber(a.quantity) - safeNumber(b.quantity);
-				if (qtyDiff !== 0) {
-					return qtyDiff;
-				}
-				return String(a.name ?? "").localeCompare(String(b.name ?? ""));
-			})
-			.slice(0, 5)
-			.map((product) => ({
-				id: String(product.id ?? ""),
-				name: String(product.name ?? "Producto sin nombre"),
-				quantity: Math.max(0, safeNumber(product.quantity)),
-			}))
-			.filter((item) => item.id);
-	} else if (error) {
-		throw new Error(error.message);
 	}
+
+	zeroStockCount = inventoryRows.reduce((count, product) => {
+		const status = (product.status ?? "").toString();
+		const qty = safeNumber(product.quantity);
+		if (status === "active" && qty <= 0) {
+			return count + 1;
+		}
+		return count;
+	}, 0);
+
+	lowStockItems = inventoryRows
+		.filter((product) => {
+			const status = (product.status ?? "").toString();
+			const qty = safeNumber(product.quantity);
+			return status === "active" && Number.isFinite(qty) && qty <= 5;
+		})
+		.sort((a, b) => {
+			const qtyDiff = safeNumber(a.quantity) - safeNumber(b.quantity);
+			if (qtyDiff !== 0) {
+				return qtyDiff;
+			}
+			return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+		})
+		.slice(0, 5)
+		.map((product) => ({
+			id: product.id,
+			name: product.name ?? "Producto sin nombre",
+			quantity: Math.max(0, safeNumber(product.quantity)),
+		}))
+		.filter((item) => item.id);
+
+	recentProductItems = ensureArray<ActivityRow>(
+		(recentProducts.data ?? []) as ActivityRow[],
+	);
+
+	recentComboItems = ensureArray<ActivityRow>(
+		(recentCombos.data ?? []) as ActivityRow[],
+	);
+
+	const orderRows = ensureArray<OrderSnapshotRow>(
+		(ordersSnapshot.data ?? []) as OrderSnapshotRow[],
+	);
+
+	ordersLast30 = orderRows.length;
+
+	revenueLast30 = orderRows.reduce((total, row) => {
+		return total + safeNumber(row.total_amount);
+	}, 0);
+
+	const trendReadyOrders = orderRows.map((row) => ({
+		created_at: row.created_at,
+		total_amount: safeNumber(row.total_amount),
+		profit_amount:
+			row.profit_amount !== null && row.profit_amount !== undefined
+				? safeNumber(row.profit_amount)
+				: safeNumber(row.total_amount) - safeNumber(row.total_cost),
+		total_cost: safeNumber(row.total_cost),
+	}));
+
+	salesTrendPoints = buildWeeklyTrendFromOrders(trendReadyOrders);
 
 	if (salesTrendPoints.length === 0) {
 		salesTrendPoints = buildEmptyWeeklyTrend();
 	}
-
-	const marginRate =
-		revenueLast30 > 0 ? (profitLast30 / revenueLast30) * 100 : 0;
 	const averageTicket = ordersLast30 > 0 ? revenueLast30 / ordersLast30 : 0;
 	const weeklyRevenue = salesTrendPoints.reduce(
 		(total, point) => total + point.totalAmount,
@@ -304,11 +312,19 @@ export default async function DashboardPage() {
 					)}`}
 				/>
 				<StatCard
-					title='Margen últimos 30 días'
-					value={profitLast30}
+					title='Ganancia inventario activo'
+					value={inventoryPotentialProfit}
 					variant='currency'
-					helperText='Utilidad registrada en pedidos completados.'
-					footnote={`Margen efectivo: ${marginRate.toFixed(1)}%`}
+					helperText='Utilidad potencial considerando precios de venta actuales.'
+					footnote={`Rentabilidad inventario: ${inventoryPotentialMargin.toFixed(
+						1,
+					)}%`}
+				/>
+				<StatCard
+					title='Margen inventario activo'
+					value={inventoryPotentialMargin}
+					variant='percentage'
+					helperText='Porcentaje de ganancia respecto al costo del inventario activo.'
 				/>
 				<StatCard
 					title='Pedidos completados'
@@ -679,8 +695,13 @@ function buildWeeklyTrendFromOrders(
 		}
 		const key = createdAt.toISOString().slice(0, 10);
 		const entry = buckets.get(key) ?? { total: 0, profit: 0, count: 0 };
-		entry.total += safeNumber(order.total_amount);
-		entry.profit += safeNumber(order.profit_amount);
+		const total = safeNumber(order.total_amount);
+		const profit =
+			order.profit_amount !== null && order.profit_amount !== undefined
+				? safeNumber(order.profit_amount)
+				: total - safeNumber(order.total_cost);
+		entry.total += total;
+		entry.profit += profit;
 		entry.count += 1;
 		buckets.set(key, entry);
 	}

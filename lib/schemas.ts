@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+const BYTES_PER_MEGABYTE = 1024 * 1024;
+export const MAX_PRODUCT_IMAGE_SIZE_MB = 5;
+export const MAX_PRODUCT_IMAGE_BYTES =
+	MAX_PRODUCT_IMAGE_SIZE_MB * BYTES_PER_MEGABYTE;
+export const PRODUCT_IMAGE_SIZE_ERROR = `La imagen debe pesar máximo ${MAX_PRODUCT_IMAGE_SIZE_MB} MB.`;
+
 const optionalTrimmedString = z
 	.union([z.string(), z.null(), z.undefined()])
 	.transform((value) => {
@@ -213,7 +219,23 @@ export const productFormSchema = z.object({
 	currency: z.string().min(1, "Moneda requerida").default("NIO"),
 	status: productStatusEnum.default("active"),
 	quantity: nonNegativeInteger.default(0),
-	imageFile: z.any().optional(),
+	imageFile: z
+		.any()
+		.optional()
+		.refine(
+			(file) => {
+				if (file === undefined) {
+					return true;
+				}
+
+				if (typeof File !== "undefined" && file instanceof File) {
+					return file.size <= MAX_PRODUCT_IMAGE_BYTES;
+				}
+
+				return false;
+			},
+			{ message: PRODUCT_IMAGE_SIZE_ERROR },
+		),
 });
 
 export const productUpdateSchema = productFormSchema.extend({

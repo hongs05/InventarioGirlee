@@ -194,6 +194,16 @@ export default async function FinancePage() {
 			currencySet.add(intake.currency);
 		}
 	}
+	for (const expense of monthlyExpenses) {
+		if (expense.currency) {
+			currencySet.add(expense.currency);
+		}
+	}
+	for (const intake of monthlyInventoryIntake) {
+		if (intake.currency) {
+			currencySet.add(intake.currency);
+		}
+	}
 
 	const currencies = Array.from(currencySet);
 	const primaryCurrency = currencies[0] ?? "NIO";
@@ -237,6 +247,21 @@ export default async function FinancePage() {
 		primaryCurrency,
 	);
 
+	const inventoryExpenseLabel = formatCurrencyTotals(
+		inventoryExpenseTotals,
+		primaryCurrency,
+	);
+	const inventoryIntakeLabel = formatCurrencyTotals(
+		inventoryCostTotals,
+		primaryCurrency,
+	);
+	const hasInventoryIntakeValue = Array.from(inventoryCostTotals.values()).some(
+		(amount) => Number.isFinite(amount) && Math.abs(amount) > 0,
+	);
+	const inventoryHelperText = hasInventoryIntakeValue
+		? `Gastos clasificados como inventario en ${monthLabel} · Ingresos registrados: ${inventoryIntakeLabel}`
+		: `Gastos clasificados como inventario en ${monthLabel}`;
+
 	const summaryCards: Array<{
 		title: string;
 		value: string;
@@ -254,8 +279,8 @@ export default async function FinancePage() {
 		},
 		{
 			title: "Gasto en inventario",
-			value: formatCurrencyTotals(inventoryCostTotals, primaryCurrency),
-			helper: "Costo de ingresos de inventario durante el mes",
+			value: inventoryExpenseLabel,
+			helper: inventoryHelperText,
 		},
 		{
 			title: "Unidades ingresadas",

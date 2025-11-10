@@ -12,6 +12,9 @@ import {
 	ProductFormValues,
 	productFormSchema,
 	productStatusEnum,
+	MAX_PRODUCT_IMAGE_BYTES,
+	MAX_PRODUCT_IMAGE_SIZE_MB,
+	PRODUCT_IMAGE_SIZE_ERROR,
 } from "@/lib/schemas";
 
 export type CategoryOption = {
@@ -31,6 +34,7 @@ type ProductFormProps = {
 };
 
 const statusOptions = productStatusEnum.options;
+const imageUploadHelperText = `Formatos: JPG, PNG, WEBP. Tamaño máximo: ${MAX_PRODUCT_IMAGE_SIZE_MB} MB (recomendado 800x800px).`;
 
 type GenerateSkuArgs = {
 	categoryName?: string;
@@ -159,6 +163,10 @@ export function ProductForm({
 		setError,
 		clearErrors,
 	} = form;
+	const imageFileError =
+		errors.imageFile?.message !== undefined
+			? String(errors.imageFile.message)
+			: serverErrors?.imageFile?.[0];
 
 	const costPrice = useWatch({ control, name: "costPrice" });
 	const categoryId = useWatch({ control, name: "categoryId" });
@@ -550,10 +558,28 @@ export function ProductForm({
 						name='imageFile'
 						label='Imagen del producto'
 						defaultPreview={defaultValues?.imageUrl ?? null}
-						helperText='Formatos: JPG, PNG, WEBP. Tamaño recomendado: 800x800px'
-						onFileChange={(file) =>
-							setValue("imageFile", file ?? undefined, { shouldDirty: true })
-						}
+						helperText={imageUploadHelperText}
+						error={imageFileError}
+						onFileChange={(file) => {
+							if (file && file.size > MAX_PRODUCT_IMAGE_BYTES) {
+								setError("imageFile", {
+									type: "manual",
+									message: PRODUCT_IMAGE_SIZE_ERROR,
+								});
+								setValue("imageFile", undefined, {
+									shouldDirty: true,
+									shouldValidate: true,
+								});
+								setImageKey((prev) => prev + 1);
+								return;
+							}
+
+							clearErrors("imageFile");
+							setValue("imageFile", file ?? undefined, {
+								shouldDirty: true,
+								shouldValidate: true,
+							});
+						}}
 					/>
 
 					<div className='space-y-2'>

@@ -22,9 +22,8 @@ type CatalogEntry = {
 	name: string;
 	description?: string;
 	imageUrl?: string | null;
-	unitPriceLabel: string;
-	totalPriceLabel: string;
-	quantityLabel: string;
+	priceLabel: string;
+	hasSalePrice: boolean;
 };
 
 const A4_WIDTH = 595.28;
@@ -32,12 +31,14 @@ const A4_HEIGHT = 841.89;
 const PAGE_MARGIN = 36;
 const HEADER_HEIGHT = 90;
 const FOOTER_HEIGHT = 36;
-const CARD_GAP = 18;
-const CARD_WIDTH = (A4_WIDTH - PAGE_MARGIN * 2 - CARD_GAP) / 2;
-const CARD_HEIGHT = 260;
-const CARD_VERTICAL_GAP = 20;
-const CARD_PADDING = 16;
-const IMAGE_BOX_HEIGHT = 140;
+const NUM_COLUMNS = 3;
+const CARD_GAP = 14;
+const CARD_WIDTH =
+	(A4_WIDTH - PAGE_MARGIN * 2 - CARD_GAP * (NUM_COLUMNS - 1)) / NUM_COLUMNS;
+const CARD_HEIGHT = 230;
+const CARD_VERTICAL_GAP = 18;
+const CARD_PADDING = 14;
+const IMAGE_BOX_HEIGHT = 120;
 
 const COLORS = {
 	pageBackground: hexToRgb("#f8f1f4"),
@@ -51,7 +52,8 @@ const COLORS = {
 	description: hexToRgb("#6f4d5d"),
 	label: hexToRgb("#b46a88"),
 	value: hexToRgb("#9a1c4f"),
-	quantityValue: hexToRgb("#4a1831"),
+	priceBackground: hexToRgb("#f8e3ec"),
+	pricePlaceholder: hexToRgb("#a27a8c"),
 	footer: hexToRgb("#6b4b57"),
 };
 
@@ -74,8 +76,6 @@ function formatCurrency(value: number, currency: string) {
 		minimumFractionDigits: 2,
 	}).format(value);
 }
-
-const quantityFormatter = new Intl.NumberFormat("es-NI");
 
 function hexToRgb(hex: string) {
 	const sanitized = hex.replace("#", "");
@@ -194,16 +194,13 @@ function drawHeader(
 		color: COLORS.title,
 	});
 
-	page.drawText(
-		"Selección de productos activos presentada como álbum para tus clientes.",
-		{
-			x: PAGE_MARGIN,
-			y: titleY - 24,
-			font: regularFont,
-			size: 12,
-			color: COLORS.subtitle,
-		},
-	);
+	page.drawText("Selección curada de tus productos destacados.", {
+		x: PAGE_MARGIN,
+		y: titleY - 24,
+		font: regularFont,
+		size: 12,
+		color: COLORS.subtitle,
+	});
 
 	page.drawText(`Actualizado el ${exportedDate}`, {
 		x: PAGE_MARGIN,
@@ -280,7 +277,7 @@ function drawCard(
 		});
 	}
 
-	let textY = imageY - 20;
+	let textY = imageY - 18;
 	const textX = x + CARD_PADDING;
 	const textWidth = CARD_WIDTH - CARD_PADDING * 2;
 
@@ -292,7 +289,7 @@ function drawCard(
 		color: COLORS.name,
 	});
 
-	textY -= 18;
+	textY -= 16;
 
 	if (entry.description) {
 		const lines = wrapText(entry.description, fonts.regular, 11, textWidth);
@@ -306,57 +303,37 @@ function drawCard(
 			});
 			textY -= 14;
 		}
-		textY -= 4;
+		textY -= 6;
 	}
 
-	page.drawText("Cantidad disponible", {
+	const priceBoxHeight = 34;
+	const priceBoxY = textY - priceBoxHeight + 6;
+	page.drawRectangle({
 		x: textX,
-		y: textY,
-		font: fonts.regular,
-		size: 10,
-		color: COLORS.label,
+		y: priceBoxY,
+		width: textWidth,
+		height: priceBoxHeight,
+		color: COLORS.priceBackground,
 	});
-	textY -= 12;
-	page.drawText(entry.quantityLabel, {
-		x: textX,
-		y: textY,
-		font: fonts.bold,
-		size: 12,
-		color: COLORS.quantityValue,
-	});
-	textY -= 16;
 
-	page.drawText("Precio unitario", {
-		x: textX,
-		y: textY,
+	page.drawText("Precio de venta", {
+		x: textX + 10,
+		y: priceBoxY + priceBoxHeight - 14,
 		font: fonts.regular,
 		size: 10,
 		color: COLORS.label,
 	});
-	textY -= 12;
-	page.drawText(entry.unitPriceLabel, {
-		x: textX,
-		y: textY,
-		font: fonts.bold,
-		size: 14,
-		color: COLORS.value,
-	});
-	textY -= 16;
 
-	page.drawText("Total inventario", {
-		x: textX,
-		y: textY,
-		font: fonts.regular,
-		size: 10,
-		color: COLORS.label,
-	});
-	textY -= 12;
-	page.drawText(entry.totalPriceLabel, {
-		x: textX,
-		y: textY,
-		font: fonts.bold,
-		size: 14,
-		color: COLORS.value,
+	const priceText = entry.hasSalePrice
+		? entry.priceLabel
+		: "Sin precio asignado";
+
+	page.drawText(priceText, {
+		x: textX + 10,
+		y: priceBoxY + 10,
+		font: entry.hasSalePrice ? fonts.bold : fonts.regular,
+		size: entry.hasSalePrice ? 14 : 12,
+		color: entry.hasSalePrice ? COLORS.value : COLORS.pricePlaceholder,
 	});
 }
 
@@ -386,20 +363,22 @@ export async function GET() {
 	const products: CatalogEntry[] = ((data ?? []) as ProductRow[]).map(
 		(product) => {
 			const currency = resolveCurrency(product.currency);
-			const unitPrice = safeNumber(
-				product.sell_price ?? product.cost_price ?? 0,
-			);
-			const quantity = Math.max(0, safeNumber(product.quantity ?? 0));
-			const totalPrice = unitPrice * quantity;
+			const hasSellPrice =
+				product.sell_price !== null && product.sell_price !== undefined;
+			const sellPriceValue = hasSellPrice
+				? safeNumber(product.sell_price)
+				: null;
+			const priceLabel = hasSellPrice
+				? formatCurrency(sellPriceValue ?? 0, currency)
+				: "";
 
 			return {
 				id: product.id,
 				name: product.name,
 				description: product.description?.trim() || undefined,
 				imageUrl: product.image_path,
-				unitPriceLabel: formatCurrency(unitPrice, currency),
-				totalPriceLabel: formatCurrency(totalPrice, currency),
-				quantityLabel: quantityFormatter.format(quantity),
+				priceLabel,
+				hasSalePrice: hasSellPrice,
 			};
 		},
 	);
@@ -415,7 +394,7 @@ export async function GET() {
 	let column = 0;
 
 	for (const entry of products) {
-		if (cursorY - CARD_HEIGHT < PAGE_MARGIN + FOOTER_HEIGHT) {
+		if (column === 0 && cursorY - CARD_HEIGHT < PAGE_MARGIN + FOOTER_HEIGHT) {
 			page = pdfDoc.addPage([A4_WIDTH, A4_HEIGHT]);
 			drawHeader(page, regularFont, boldFont, exportedDate);
 			cursorY = A4_HEIGHT - PAGE_MARGIN - HEADER_HEIGHT;
@@ -435,9 +414,8 @@ export async function GET() {
 			embeddedImage,
 		);
 
-		if (column === 0) {
-			column = 1;
-		} else {
+		column += 1;
+		if (column >= NUM_COLUMNS) {
 			column = 0;
 			cursorY -= CARD_HEIGHT + CARD_VERTICAL_GAP;
 		}

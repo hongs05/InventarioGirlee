@@ -311,15 +311,22 @@ async function InventoryGrid({
 								</div>
 								<div>
 									<p className='text-xs font-medium uppercase tracking-wide text-gray-500'>
-										Precio sugerido
+										Precio de venta
 									</p>
 									<p className='mt-1'>
-										{recommendation
-											? formatCurrency(
-													recommendation.suggested,
-													product.currency,
-											  )
-											: "Sin datos"}
+										{hasSellPrice ? (
+											formatCurrency(sellPrice, product.currency)
+										) : (
+											<span className='text-gray-400'>
+												Sin precio asignado
+												{recommendation
+													? ` · Sugerido ${formatCurrency(
+															recommendation.suggested,
+															product.currency,
+													  )}`
+													: ""}
+											</span>
+										)}
 									</p>
 								</div>
 								<div>

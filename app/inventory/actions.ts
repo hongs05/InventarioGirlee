@@ -124,15 +124,9 @@ export async function createProductAction(
 			payload.categoryId,
 			payload.newCategoryName,
 		);
-		const quantityValue = payload.quantity ?? 0;
-		let resolvedStatus: string;
-		if (quantityValue <= 0) {
-			resolvedStatus = "archived";
-		} else if (payload.status === "archived") {
-			resolvedStatus = "active";
-		} else {
-			resolvedStatus = payload.status ?? "active";
-		}
+		const quantityValue = Math.max(0, payload.quantity ?? 0);
+		const submittedStatus = payload.status ?? "active";
+		const resolvedStatus = quantityValue <= 0 ? "archived" : submittedStatus;
 
 		let imageUrl: string | null = null;
 		if (payload.imageFile instanceof File) {
@@ -173,6 +167,9 @@ export async function createProductAction(
 		if (error || !data) {
 			throw new Error("No pudimos guardar el producto");
 		}
+
+		revalidatePath("/inventory");
+		revalidatePath("/dashboard");
 
 		return {
 			success: true,
@@ -252,15 +249,9 @@ export async function updateProductAction(formData: FormData): Promise<
 			payload.categoryId,
 			payload.newCategoryName,
 		);
-		const quantityValue = payload.quantity ?? 0;
-		let resolvedStatus: string;
-		if (quantityValue <= 0) {
-			resolvedStatus = "archived";
-		} else if (payload.status === "archived") {
-			resolvedStatus = "active";
-		} else {
-			resolvedStatus = payload.status ?? "active";
-		}
+		const quantityValue = Math.max(0, payload.quantity ?? 0);
+		const submittedStatus = payload.status ?? "active";
+		const resolvedStatus = quantityValue <= 0 ? "archived" : submittedStatus;
 
 		let imageUrl = existing.image_path ?? null;
 		if (payload.imageFile instanceof File) {
@@ -296,6 +287,9 @@ export async function updateProductAction(formData: FormData): Promise<
 		if (updateError) {
 			throw new Error(updateError.message);
 		}
+
+		revalidatePath("/inventory");
+		revalidatePath("/dashboard");
 
 		return {
 			success: true,
