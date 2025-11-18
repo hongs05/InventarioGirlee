@@ -4,6 +4,10 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 import { LoginForm } from "./_components/login-form";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
 type LoginPageProps = {
 	searchParams?: Record<string, string | string[] | undefined>;
 };

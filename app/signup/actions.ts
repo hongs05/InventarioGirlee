@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import type { SignupFormState } from "./form-state";
 
 const signupSchema = z.object({
 	email: z
@@ -13,20 +14,6 @@ const signupSchema = z.object({
 		.string({ required_error: "Crea una contraseña" })
 		.min(6, "La contraseña debe tener al menos 6 caracteres"),
 });
-
-type SignupField = "email" | "password";
-
-export type SignupFormState = {
-	fieldErrors: Partial<Record<SignupField, string>>;
-	formError: string | null;
-	formSuccess: string | null;
-};
-
-export const initialSignupState: SignupFormState = {
-	fieldErrors: {},
-	formError: null,
-	formSuccess: null,
-};
 
 export async function signupAction(
 	_prevState: SignupFormState,

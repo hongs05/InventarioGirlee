@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { initialLoginState, loginAction } from "../actions";
+import { loginAction } from "../actions";
+import { initialLoginState } from "../form-state";
 
 function SubmitButton() {
 	const { pending } = useFormStatus();
@@ -30,6 +31,9 @@ export function LoginForm({ message, initialError }: LoginFormProps) {
 			? { ...initialLoginState, formError: initialError }
 			: initialLoginState,
 	);
+	const safeState = state ?? initialLoginState;
+	const fieldErrors = safeState.fieldErrors ?? {};
+	const formError = safeState.formError ?? null;
 
 	return (
 		<form className='mt-8 space-y-6' action={formAction} noValidate>
@@ -42,14 +46,14 @@ export function LoginForm({ message, initialError }: LoginFormProps) {
 				</div>
 			) : null}
 
-			{state.formError ? (
-				<div
-					role='alert'
-					aria-live='assertive'
-					className='rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'>
-					{state.formError}
-				</div>
-			) : null}
+				{formError ? (
+					<div
+						role='alert'
+						aria-live='assertive'
+						className='rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'>
+						{formError}
+					</div>
+				) : null}
 
 			<div className='space-y-4'>
 				<div>
@@ -64,18 +68,18 @@ export function LoginForm({ message, initialError }: LoginFormProps) {
 						type='email'
 						autoComplete='email'
 						required
-						aria-invalid={Boolean(state.fieldErrors.email)}
-						aria-describedby={
-							state.fieldErrors.email ? "login-email-error" : undefined
-						}
-						className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blush-400 focus:outline-none focus:ring-blush-300'
-					/>
-					{state.fieldErrors.email ? (
-						<p id='login-email-error' className='mt-1 text-xs text-red-500'>
-							{state.fieldErrors.email}
-						</p>
-					) : null}
-				</div>
+							aria-invalid={Boolean(fieldErrors.email)}
+							aria-describedby={
+								fieldErrors.email ? "login-email-error" : undefined
+							}
+							className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blush-400 focus:outline-none focus:ring-blush-300'
+						/>
+						{fieldErrors.email ? (
+							<p id='login-email-error' className='mt-1 text-xs text-red-500'>
+								{fieldErrors.email}
+							</p>
+						) : null}
+					</div>
 				<div>
 					<label
 						htmlFor='password'
@@ -88,18 +92,18 @@ export function LoginForm({ message, initialError }: LoginFormProps) {
 						type='password'
 						autoComplete='current-password'
 						required
-						aria-invalid={Boolean(state.fieldErrors.password)}
-						aria-describedby={
-							state.fieldErrors.password ? "login-password-error" : undefined
-						}
-						className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blush-400 focus:outline-none focus:ring-blush-300'
-					/>
-					{state.fieldErrors.password ? (
-						<p id='login-password-error' className='mt-1 text-xs text-red-500'>
-							{state.fieldErrors.password}
-						</p>
-					) : null}
-				</div>
+							aria-invalid={Boolean(fieldErrors.password)}
+							aria-describedby={
+								fieldErrors.password ? "login-password-error" : undefined
+							}
+							className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blush-400 focus:outline-none focus:ring-blush-300'
+						/>
+						{fieldErrors.password ? (
+							<p id='login-password-error' className='mt-1 text-xs text-red-500'>
+								{fieldErrors.password}
+							</p>
+						) : null}
+					</div>
 			</div>
 
 			<SubmitButton />

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 
-import { initialSignupState, signupAction } from "../actions";
+import { signupAction } from "../actions";
+import { initialSignupState } from "../form-state";
 
 function SubmitButton() {
 	const { pending } = useFormStatus();
@@ -29,15 +30,18 @@ export function SignupForm({ initialError }: SignupFormProps) {
 			? { ...initialSignupState, formError: initialError }
 			: initialSignupState,
 	);
+	const safeState = state ?? initialSignupState;
+	const fieldErrors = safeState.fieldErrors ?? {};
+	const formError = safeState.formError ?? null;
 
 	return (
 		<form className='mt-8 space-y-6' action={formAction} noValidate>
-			{state.formError ? (
+			{formError ? (
 				<div
 					role='alert'
 					aria-live='assertive'
 					className='rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700'>
-					{state.formError}
+					{formError}
 				</div>
 			) : null}
 
@@ -54,15 +58,15 @@ export function SignupForm({ initialError }: SignupFormProps) {
 						type='email'
 						autoComplete='email'
 						required
-						aria-invalid={Boolean(state.fieldErrors.email)}
+						aria-invalid={Boolean(fieldErrors.email)}
 						aria-describedby={
-							state.fieldErrors.email ? "signup-email-error" : undefined
+							fieldErrors.email ? "signup-email-error" : undefined
 						}
 						className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blush-400 focus:outline-none focus:ring-blush-300'
 					/>
-					{state.fieldErrors.email ? (
+					{fieldErrors.email ? (
 						<p id='signup-email-error' className='mt-1 text-xs text-red-500'>
-							{state.fieldErrors.email}
+							{fieldErrors.email}
 						</p>
 					) : null}
 				</div>
@@ -79,15 +83,15 @@ export function SignupForm({ initialError }: SignupFormProps) {
 						autoComplete='new-password'
 						required
 						minLength={6}
-						aria-invalid={Boolean(state.fieldErrors.password)}
+						aria-invalid={Boolean(fieldErrors.password)}
 						aria-describedby={
-							state.fieldErrors.password ? "signup-password-error" : undefined
+							fieldErrors.password ? "signup-password-error" : undefined
 						}
 						className='mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blush-400 focus:outline-none focus:ring-blush-300'
 					/>
-					{state.fieldErrors.password ? (
+					{fieldErrors.password ? (
 						<p id='signup-password-error' className='mt-1 text-xs text-red-500'>
-							{state.fieldErrors.password}
+							{fieldErrors.password}
 						</p>
 					) : null}
 				</div>

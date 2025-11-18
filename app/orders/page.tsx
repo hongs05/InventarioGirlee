@@ -2,7 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import DashboardShell from "@/components/dashboard-shell";
+import { createSupabaseAdminClient } from "@/lib/supabase-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 const STATUS_LABELS: Record<string, string> = {
 	pending: "Pendiente",
@@ -10,6 +15,8 @@ const STATUS_LABELS: Record<string, string> = {
 	completed: "Completada",
 	cancelled: "Cancelada",
 };
+
+const ATTENTION_STATUSES = new Set(["pending", "processing"]);
 
 type OrderRow = {
 	id: string;
@@ -40,7 +47,11 @@ function parseNumber(value: string | number | null | undefined) {
 	return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export default async function OrdersPage() {
+export default async function OrdersPage({
+	searchParams,
+}: {
+	searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
 	const supabase = await createSupabaseServerClient();
 	const {
 		data: { user },
@@ -50,16 +61,28 @@ export default async function OrdersPage() {
 		redirect("/login");
 	}
 
-	const { data, error } = await supabase
+	const admin = createSupabaseAdminClient();
+	const { data, error } = await admin
 		.from("orders")
 		.select(
 			"id, receipt_number, customer_name, status, payment_method, subtotal_amount, discount_amount, tax_amount, total_amount, total_cost, profit_amount, currency, created_at",
 		)
 		.order("created_at", { ascending: false });
 
+	const params = searchParams ? await searchParams : {};
 	const orders = (data ?? []) as OrderRow[];
 	const stats = calculateStats(orders);
 	const currency = orders[0]?.currency ?? "NIO";
+	const attentionCount = orders.filter((order) =>
+		ATTENTION_STATUSES.has(order.status ?? ""),
+	).length;
+	const viewParam = Array.isArray(params?.view) ? params.view[0] : params?.view;
+	const attentionOnly =
+		typeof viewParam === "string" &&
+		viewParam.toLowerCase() === "attention";
+	const displayOrders = attentionOnly
+		? orders.filter((order) => ATTENTION_STATUSES.has(order.status ?? ""))
+		: orders;
 
 	return (
 		<DashboardShell
@@ -83,7 +106,11 @@ export default async function OrdersPage() {
 			) : (
 				<div className='space-y-8'>
 					<OrderStatsGrid stats={stats} currency={currency} />
-					<OrdersTable orders={orders} />
+					<AttentionCard
+						count={attentionCount}
+						attentionOnly={attentionOnly}
+					/>
+					<OrdersTable orders={displayOrders} />
 				</div>
 			)}
 		</DashboardShell>
@@ -168,6 +195,40 @@ function StatCard({
 	);
 }
 
+function AttentionCard({
+	count,
+	attentionOnly,
+}: {
+	count: number;
+	attentionOnly: boolean;
+}) {
+	const alert =
+		count === 0
+			? "No hay órdenes pendientes."
+			: count === 1
+			? "1 orden requiere seguimiento."
+			: `${count} órdenes requieren seguimiento.`;
+
+	const href = attentionOnly ? "/orders" : "/orders?view=attention";
+	const actionLabel = attentionOnly ? "Ver todas" : "Ver pendientes";
+
+	return (
+		<div className='flex flex-col gap-3 rounded-xl border border-blush-100 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between'>
+			<div>
+				<p className='text-xs font-semibold uppercase tracking-[0.3em] text-blush-500'>
+					Atención
+				</p>
+				<p className='text-sm font-semibold text-gray-900'>{alert}</p>
+			</div>
+			<Link
+				href={href}
+				className='inline-flex items-center self-start rounded-full border border-blush-200 px-4 py-2 text-xs font-semibold text-blush-600 transition hover:border-blush-300 hover:bg-blush-50'>
+				{actionLabel}
+			</Link>
+		</div>
+	);
+}
+
 function OrdersTable({ orders }: { orders: OrderRow[] }) {
 	if (!orders.length) {
 		return (
@@ -198,13 +259,25 @@ function OrdersTable({ orders }: { orders: OrderRow[] }) {
 				<tbody className='divide-y divide-gray-200'>
 					{orders.map((order) => {
 						const currency = order.currency ?? "NIO";
+						const needsAttention = ATTENTION_STATUSES.has(order.status ?? "");
 						return (
-							<tr key={order.id} className='hover:bg-blush-50'>
+							<tr
+								key={order.id}
+								className={`hover:bg-blush-50 ${
+									needsAttention ? "border-l-4 border-l-blush-400" : ""
+								}`}>
 								<td className='px-4 py-4 font-medium text-gray-900'>
 									{order.customer_name?.trim() || "Cliente sin nombre"}
 								</td>
 								<td className='px-4 py-4 text-gray-700'>
-									<OrderStatusBadge status={order.status} />
+									<div className='flex flex-wrap items-center gap-2'>
+										<OrderStatusBadge status={order.status} />
+										{needsAttention ? (
+											<span className='inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700'>
+												Requiere atención
+											</span>
+										) : null}
+									</div>
 								</td>
 								<td className='px-4 py-4 text-gray-700'>
 									{formatPayment(order.payment_method)}
