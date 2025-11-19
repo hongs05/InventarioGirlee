@@ -339,7 +339,7 @@ export async function listActiveProductBrands(): Promise<string[]> {
 	noStore();
 	const supabase = await createSupabaseServerClient();
 	const { data, error } = await supabase
-		.from<BrandRow>("products")
+		.from("products")
 		.select("meta")
 		.eq("status", "active")
 		.order("created_at", { ascending: false });
@@ -350,7 +350,8 @@ export async function listActiveProductBrands(): Promise<string[]> {
 	}
 
 	const uniqueBrands = new Set<string>();
-	for (const entry of data ?? []) {
+	const rows = (data ?? []) as BrandRow[];
+	for (const entry of rows) {
 		const brand = entry.meta?.brand;
 		if (typeof brand === "string" && brand.trim()) {
 			uniqueBrands.add(brand.trim());
