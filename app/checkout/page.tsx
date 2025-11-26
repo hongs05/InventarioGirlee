@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useCart } from "@/components/storefront/cart-context";
 import { SectionHeader } from "@/components/storefront/section-header";
@@ -29,12 +29,14 @@ const PAYMENT_OPTIONS = [
 	{
 		value: "whatsapp",
 		label: "Responder por WhatsApp",
-		description: "Confirmamos total y enlace para abonar cuando tú estés lista.",
+		description:
+			"Confirmamos total y enlace para abonar cuando tú estés lista.",
 	},
 	{
 		value: "transfer",
 		label: "Transferencia",
-		description: "Te enviamos la factura y datos bancarios para completar el pago.",
+		description:
+			"Te enviamos la factura y datos bancarios para completar el pago.",
 	},
 	{
 		value: "cod",
@@ -58,8 +60,14 @@ function formatCurrency(value: number, currency?: string) {
 }
 
 export default function CheckoutPage() {
-	const { items, itemCount, subtotal, hasItemsWithoutPrice, clearCart } =
-		useCart();
+	const {
+		items,
+		itemCount,
+		subtotal,
+		hasItemsWithoutPrice,
+		clearCart,
+		isHydrated,
+	} = useCart();
 	const hasItems = itemCount > 0;
 	const [status, setStatus] = useState<"idle" | "submitting" | "done">("idle");
 	const [delivery, setDelivery] = useState<string>(DELIVERY_OPTIONS[0].value);
@@ -72,11 +80,40 @@ export default function CheckoutPage() {
 	});
 	const [error, setError] = useState<string | null>(null);
 
+	const deliveryOption = useMemo(
+		() => DELIVERY_OPTIONS.find((option) => option.value === delivery),
+		[delivery],
+	);
+
+	const paymentOption = useMemo(
+		() => PAYMENT_OPTIONS.find((option) => option.value === payment),
+		[payment],
+	);
+
+	useEffect(() => {
+		if (status === "done" && hasItems) {
+			setStatus("idle");
+		}
+	}, [status, hasItems]);
+
 	const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
-		if (!hasItems) return;
+		if (!hasItems || status === "submitting") return;
 		setStatus("submitting");
 		setError(null);
+
+		const sanitizedForm = {
+			name: form.name.trim(),
+			phone: form.phone.trim(),
+			email: form.email.trim(),
+			message: form.message.trim(),
+		};
+
+		if (!sanitizedForm.name || !sanitizedForm.phone || !sanitizedForm.email) {
+			setError("Por favor completa tus datos de contacto.");
+			setStatus("idle");
+			return;
+		}
 
 		try {
 			const paymentMethod =
@@ -86,18 +123,33 @@ export default function CheckoutPage() {
 					? "cash"
 					: "cash";
 
+			const cartCurrency = items[0]?.currency ?? "NIO";
+			const lineItems = items.map((item) => ({
+				id: item.id,
+				slug: item.slug,
+				name: item.name,
+				currency: item.currency,
+				price: item.price,
+				quantity: item.quantity,
+			}));
+
 			const response = await fetch("/api/storefront/orders", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					name: form.name,
-					phone: form.phone,
-					email: form.email,
-					message: form.message,
+					name: sanitizedForm.name,
+					phone: sanitizedForm.phone,
+					email: sanitizedForm.email,
+					message: sanitizedForm.message,
 					delivery,
+					deliveryLabel: deliveryOption?.title ?? delivery,
 					payment: paymentMethod,
-					items,
+					paymentLabel: paymentOption?.label ?? payment,
+					paymentPreference: payment,
+					items: lineItems,
 					subtotal,
+					currency: cartCurrency,
+					hasItemsWithoutPrice,
 				}),
 			});
 
@@ -122,6 +174,38 @@ export default function CheckoutPage() {
 			setStatus("idle");
 		}
 	};
+
+	if (!isHydrated) {
+		return (
+			<SiteShell>
+				<section className='space-y-8'>
+					<div className='space-y-4 rounded-3xl border border-blush-100 bg-white/70 p-6 shadow-sm'>
+						<div className='h-6 w-48 rounded-full bg-blush-100/80' />
+						<div className='h-4 w-72 rounded-full bg-blush-100/60' />
+						<div className='space-y-3'>
+							{Array.from({ length: 3 }).map((_, index) => (
+								<div
+									key={index}
+									className='h-12 w-full rounded-2xl bg-blush-50/70'
+								/>
+							))}
+						</div>
+					</div>
+					<div className='grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]'>
+						<div className='space-y-4 rounded-3xl border border-blush-100 bg-white/70 p-6 shadow-sm'>
+							<div className='h-4 w-32 rounded-full bg-blush-100/70' />
+							<div className='h-20 w-full rounded-2xl bg-blush-50/60' />
+							<div className='h-32 w-full rounded-2xl bg-blush-50/60' />
+						</div>
+						<div className='space-y-4 rounded-3xl border border-blush-100 bg-white/70 p-6 shadow-sm'>
+							<div className='h-4 w-24 rounded-full bg-blush-100/70' />
+							<div className='h-32 w-full rounded-2xl bg-blush-50/60' />
+						</div>
+					</div>
+				</section>
+			</SiteShell>
+		);
+	}
 
 	return (
 		<SiteShell>
@@ -153,8 +237,8 @@ export default function CheckoutPage() {
 									Añade productos a tu carrito antes de continuar
 								</p>
 								<p>
-									Explora el catálogo y guarda tus favoritos. Cuando estés lista,
-									regresa para coordinar tu pedido.
+									Explora el catálogo y guarda tus favoritos. Cuando estés
+									lista, regresa para coordinar tu pedido.
 								</p>
 								<Link
 									href='/products'
@@ -250,7 +334,9 @@ export default function CheckoutPage() {
 												<span className='text-sm font-semibold text-gray-900'>
 													{option.title}
 												</span>
-												<span className='text-xs text-gray-500'>{option.body}</span>
+												<span className='text-xs text-gray-500'>
+													{option.body}
+												</span>
 											</button>
 										))}
 									</div>
@@ -313,8 +399,8 @@ export default function CheckoutPage() {
 									</p>
 									{hasItemsWithoutPrice ? (
 										<p className='text-xs text-blush-500'>
-											Algunos productos requieren confirmación de precio.
-											Te contactamos antes de cerrar tu pedido.
+											Algunos productos requieren confirmación de precio. Te
+											contactamos antes de cerrar tu pedido.
 										</p>
 									) : null}
 								</div>
@@ -344,7 +430,9 @@ export default function CheckoutPage() {
 						</div>
 						<div className='space-y-3 text-sm text-gray-600'>
 							{items.map((item) => (
-								<div key={item.id} className='flex items-center justify-between'>
+								<div
+									key={item.id}
+									className='flex items-center justify-between'>
 									<div>
 										<p className='font-semibold text-gray-900'>{item.name}</p>
 										<p className='text-xs text-gray-500'>
@@ -353,7 +441,10 @@ export default function CheckoutPage() {
 									</div>
 									<p className='text-sm font-semibold text-gray-900'>
 										{typeof item.price === "number"
-											? formatCurrency(item.price * item.quantity, item.currency)
+											? formatCurrency(
+													item.price * item.quantity,
+													item.currency,
+											  )
 											: "Precio a coordinar"}
 									</p>
 								</div>

@@ -11,6 +11,8 @@ import type {
 
 const UUID_REGEX =
 	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const EMBEDDED_UUID_REGEX =
+	/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i;
 
 function assertSupabaseUrl(): string | null {
 	const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -50,15 +52,15 @@ export function buildProductSlug(name: string, id: string) {
 
 export function parseProductIdFromSlug(slug: string) {
 	if (!slug) return null;
-	const candidate = slug.split("-").pop();
-	if (!candidate) {
-		return UUID_REGEX.test(slug) ? slug : null;
+	const trimmed = slug.trim();
+	if (!trimmed) return null;
+
+	if (UUID_REGEX.test(trimmed)) {
+		return trimmed;
 	}
-	return UUID_REGEX.test(candidate)
-		? candidate
-		: UUID_REGEX.test(slug)
-		? slug
-		: null;
+
+	const match = trimmed.match(EMBEDDED_UUID_REGEX);
+	return match ? match[0] : null;
 }
 
 type ProductRow = {

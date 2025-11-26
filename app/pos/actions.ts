@@ -311,7 +311,7 @@ export async function createSaleAction(
 			const lineCostTotal = roundCurrency(unitCost * qty);
 
 			productLineRecords.push({
-				order_id: "",
+				order_id: "", // will be set after order creation
 				product_id: item.productId,
 				qty,
 				unit_price: unitPrice,
@@ -402,7 +402,7 @@ export async function createSaleAction(
 			const lineCostTotal = roundCurrency(comboUnitCost * qty);
 
 			comboLineRecords.push({
-				order_id: "",
+				order_id: "", // will be set after order creation
 				combo_id: item.comboId,
 				qty,
 				unit_price: unitPrice,
@@ -491,13 +491,8 @@ export async function createSaleAction(
 		if (productLineRecords.length) {
 			const productRecordsWithOrder: LineItemInsertRecord[] =
 				productLineRecords.map((record) => ({
+					...record,
 					order_id: order.id,
-					product_id: record.product_id,
-					qty: record.qty,
-					unit_price: record.unit_price,
-					unit_cost: record.unit_cost,
-					line_total: record.line_total,
-					line_cost_total: record.line_cost_total,
 				}));
 
 			await insertLineItemsWithFallback(
@@ -510,13 +505,8 @@ export async function createSaleAction(
 		if (comboLineRecords.length) {
 			const comboRecordsWithOrder: LineItemInsertRecord[] =
 				comboLineRecords.map((record) => ({
+					...record,
 					order_id: order.id,
-					combo_id: record.combo_id,
-					qty: record.qty,
-					unit_price: record.unit_price,
-					unit_cost: record.unit_cost,
-					line_total: record.line_total,
-					line_cost_total: record.line_cost_total,
 				}));
 
 			await insertLineItemsWithFallback(

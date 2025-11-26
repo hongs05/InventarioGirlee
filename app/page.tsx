@@ -22,7 +22,7 @@ export default async function HomePage() {
 					action={
 						<Link
 							href='/products'
-							className='inline-flex items-center rounded-full border border-blush-200 px-4 py-2 text-sm font-semibold text-blush-600 transition hover:border-blush-300 hover:bg-blush-100/70'>
+							className='inline-flex items-center rounded-full border border-white/60 bg-white/80 px-4 py-2 text-sm font-semibold text-blush-600 transition hover:border-blush-200 hover:bg-white'>
 							Ver catálogo completo
 						</Link>
 					}
@@ -34,7 +34,7 @@ export default async function HomePage() {
 						))}
 					</div>
 				) : (
-					<div className='rounded-2xl border border-blush-100 bg-white/70 p-10 text-center text-sm text-gray-500'>
+					<div className='glass-panel rounded-2xl border border-white/60 bg-white/70 p-10 text-center text-sm text-gray-500'>
 						Pronto añadiremos productos increíblemente especiales. Mientras
 						tanto puedes contactarnos para asesoría personalizada.
 					</div>
@@ -51,11 +51,11 @@ export default async function HomePage() {
 						{featuredCombos.map((combo) => (
 							<article
 								key={combo.id}
-								className='flex h-full flex-col rounded-3xl border border-blush-100 bg-white/70 p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg'>
+								className='glass-panel flex h-full flex-col rounded-3xl border border-white/60 bg-white/80 p-6 transition hover:-translate-y-1 hover:shadow-lg'>
 								<p className='text-xs font-semibold uppercase tracking-[0.3em] text-blush-500'>
 									Colección exclusiva
 								</p>
-								<h3 className='mt-3 text-xl font-semibold text-gray-900'>
+								<h3 className='brand-heading mt-3 text-2xl font-semibold text-gray-900'>
 									{combo.name}
 								</h3>
 								<p className='mt-2 flex-1 text-sm text-gray-600'>
@@ -64,21 +64,21 @@ export default async function HomePage() {
 								</p>
 								<Link
 									href='/contact'
-									className='mt-6 inline-flex items-center rounded-full bg-blush-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blush-400'>
+									className='mt-6 inline-flex items-center rounded-full bg-blush-500 px-4 py-2 text-sm font-semibold text-white shadow-soft transition hover:bg-blush-400'>
 									Solicitar ahora
 								</Link>
 							</article>
 						))}
 					</div>
 				) : (
-					<div className='rounded-2xl border border-dashed border-blush-200 bg-white/50 p-10 text-center text-sm text-gray-500'>
+					<div className='rounded-2xl border border-dashed border-blush-200 bg-white/60 p-10 text-center text-sm text-gray-500'>
 						Estamos preparando nuevos combos especiales. Escríbenos para diseñar
 						uno a tu medida.
 					</div>
 				)}
 			</section>
 
-			<section className='mt-20 grid gap-8 rounded-3xl border border-blush-100 bg-white/80 p-10 shadow-sm md:grid-cols-3'>
+			<section className='mt-20 grid gap-8 rounded-3xl border border-white/60 bg-white/80 p-10 shadow-soft md:grid-cols-3'>
 				{SERVICE_PILLARS.map((pillar) => (
 					<div key={pillar.title} className='space-y-3'>
 						<div className='inline-flex h-12 w-12 items-center justify-center rounded-full bg-blush-100 text-lg font-semibold text-blush-600 shadow-inner'>
@@ -140,10 +140,10 @@ function HeroSection() {
 	return (
 		<div className='mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-16 sm:px-6 lg:flex-row lg:items-center lg:py-20 lg:px-8'>
 			<div className='space-y-6 lg:w-3/5'>
-				<p className='text-sm font-semibold uppercase tracking-[0.4em] text-blush-500'>
+				<p className='pill inline-flex bg-white/70 text-[0.6rem] tracking-[0.4em] text-gray-500'>
 					Bienvenida a Girlee
 				</p>
-				<h1 className='text-4xl font-semibold leading-tight text-gray-900 sm:text-5xl'>
+				<h1 className='brand-heading text-4xl font-semibold leading-tight text-gray-900 sm:text-5xl lg:text-6xl'>
 					Belleza consciente, inventario inteligente y experiencias que abrazan
 					tu esencia.
 				</h1>
@@ -154,18 +154,18 @@ function HeroSection() {
 				<div className='flex flex-wrap gap-4'>
 					<Link
 						href='/products'
-						className='inline-flex items-center rounded-full bg-blush-500 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blush-400'>
+						className='inline-flex items-center rounded-full bg-blush-500 px-6 py-3 text-sm font-semibold text-white shadow-soft transition hover:bg-blush-400'>
 						Explorar productos
 					</Link>
 					<Link
 						href='/about'
-						className='inline-flex items-center rounded-full border border-blush-300 px-5 py-3 text-sm font-semibold text-blush-600 transition hover:bg-blush-100/70'>
+						className='inline-flex items-center rounded-full border border-white/60 bg-white/70 px-5 py-3 text-sm font-semibold text-blush-600 transition hover:border-blush-200 hover:bg-white'>
 						Nuestra historia
 					</Link>
 				</div>
 			</div>
-			<div className='relative flex-1 overflow-hidden rounded-3xl border border-blush-100 bg-white/70 p-6 shadow-lg'>
-				<div className='absolute inset-0 -z-10 bg-linear-to-br from-blush-100 via-white to-blush-200 opacity-70' />
+			<div className='glass-panel floating-dots relative flex-1 overflow-hidden rounded-4xl border border-white/60 p-6'>
+				<div className='absolute -right-8 -top-6 h-32 w-32 rounded-full bg-blush-200/40 blur-3xl' />
 				<div className='grid gap-6 text-sm text-gray-700'>
 					<div className='rounded-2xl border border-blush-100 bg-white/80 p-5 shadow-sm'>
 						<p className='text-xs uppercase tracking-[0.3em] text-blush-500'>
@@ -219,12 +219,12 @@ const HIGHLIGHTS = [
 
 function HeroHighlights() {
 	return (
-		<div className='border-b border-blush-100 bg-white/60'>
+		<div className='border-b border-white/60 bg-white/60'>
 			<div className='mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10 sm:px-6 lg:flex-row lg:gap-10 lg:px-8'>
 				{HIGHLIGHTS.map((highlight) => (
 					<div
 						key={highlight.title}
-						className='flex-1 rounded-2xl border border-blush-100 bg-white/80 p-6 text-sm text-gray-600 shadow-sm'>
+						className='glass-panel flex-1 rounded-2xl border border-white/60 bg-white/80 p-6 text-sm text-gray-600'>
 						<p className='text-base font-semibold text-gray-900'>
 							{highlight.title}
 						</p>

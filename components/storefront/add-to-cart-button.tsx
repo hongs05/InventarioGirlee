@@ -34,9 +34,9 @@ const VARIANT_STYLES: Record<
 	string
 > = {
 	primary:
-		"bg-blush-500 text-white hover:bg-blush-400 border border-transparent",
+		"bg-blush-500 text-white hover:bg-blush-400 border border-transparent shadow-soft",
 	secondary:
-		"border border-blush-300 bg-white text-blush-600 hover:bg-blush-100/70",
+		"border border-blush-200 bg-white text-blush-600 hover:bg-blush-50",
 	outline:
 		"border border-gray-200 bg-transparent text-gray-700 hover:border-gray-300",
 };
